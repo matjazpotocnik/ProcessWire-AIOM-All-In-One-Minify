@@ -2,6 +2,7 @@
 
 /*!
  * cssmin.php v2.4.8-4
+ * modified by MP
  * Author: Tubal Martin - http://tubalmartin.me/
  * Repo: https://github.com/tubalmartin/YUI-CSS-compressor-PHP-port
  *
@@ -586,7 +587,9 @@ class CSSmin
 
     private function replace_calc($matches)
     {
-        $this->preserved_tokens[] = trim(preg_replace('/\s*([\*\/\(\),])\s*/', '$1', $matches[2]));
+        //$this->preserved_tokens[] = trim(preg_replace('/\s*([\*\/\(\),])\s*/', '$1', $matches[2]));
+        //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/61
+        $this->preserved_tokens[] = preg_replace('/\)([\+\-]{1})/',') $1',preg_replace('/([\+\-]{1})\(/','$1 (',trim(preg_replace('/\s*([\*\/\(\),])\s*/', '$1', $matches[2]))));
         return 'calc('. self::TOKEN . (count($this->preserved_tokens) - 1) . '___' . ')';
     }
 
@@ -766,9 +769,9 @@ class CSSmin
     {
         if (is_string($size)) {
             switch (substr($size, -1)) {
-                case 'M': case 'm': return $size * 1048576;
-                case 'K': case 'k': return $size * 1024;
-                case 'G': case 'g': return $size * 1073741824;
+               case 'M': case 'm': return intval(substr($size, 0, strlen($size) -1)) * 1048576;
+               case 'K': case 'k': return intval(substr($size, 0, strlen($size) -1)) * 1024;
+               case 'G': case 'g': return intval(substr($size, 0, strlen($size) -1)) * 1073741824;
             }
         }
 
