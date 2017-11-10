@@ -557,7 +557,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // @description PHP port of the CSS minification tool distributed with
             //              YUICompressor.
             //------------------------------------------------------------------------
-            require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'cssmin.php');
+            //https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
+            //require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'cssmin.php');
+            require_once(wire('config')->paths->AllInOneMinify.'lib/CssMin'.DIRECTORY_SEPARATOR.'Minifier.php');
+            require_once(wire('config')->paths->AllInOneMinify.'lib/CssMin'.DIRECTORY_SEPARATOR.'Colors.php');
+            require_once(wire('config')->paths->AllInOneMinify.'lib/CssMin'.DIRECTORY_SEPARATOR.'Command.php');
+            require_once(wire('config')->paths->AllInOneMinify.'lib/CssMin'.DIRECTORY_SEPARATOR.'Utils.php');
 
             // ------------------------------------------------------------------------
             // Load the URL Rewriting Library
@@ -648,7 +653,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
                 // ------------------------------------------------------------------------
                 // Minimize generated css
                 // ------------------------------------------------------------------------
-                $cssMin = new CSSmin();
+                //https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
+                //$cssMin = new CSSmin();
+                $cssMin = new Minifier();
                 $_css_src   = (!empty($_css_src) AND self::$developmentMode !== true AND !self::_isMinimized($stylesheet['absolute_path'])) ? $cssMin->run($_css_src) : $_css_src;
                 $_css      .= $_css_src;
             }
