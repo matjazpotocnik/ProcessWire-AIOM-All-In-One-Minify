@@ -520,7 +520,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
      *
      * @return string              URL string of the combined stylesheet file
      */
-    public static function CSS($stylesheets) {
+    public static function CSS($stylesheets, $lessVars = null) {
 
         // ------------------------------------------------------------------------
         // Check if at least one file was passed.
@@ -629,14 +629,15 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
                 if($stylesheet['file_extension'] === 'less') {
                     try {
                         $_less_parser   = new Less_Parser();
-//https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/pull/50/commits/7c0c6f333459faf4c9156546fcc635ce26c73f8f
-//                        if ($isVirtualHost) {
-//                             $relativeDirectory = DIRECTORY_SEPARATOR
-//                                     . str_replace(wire('config')->paths->root, '', dirname($stylesheet['absolute_path']))
-//                                     . DIRECTORY_SEPARATOR ;
-//                             $_less_parser->SetImportDirs([ dirname($stylesheet['absolute_path']) . DIRECTORY_SEPARATOR => $relativeDirectory ] );
-//                        }
+                        //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/pull/50/commits/7c0c6f333459faf4c9156546fcc635ce26c73f8f
+                        if ($isVirtualHost) {
+                             $relativeDirectory = DIRECTORY_SEPARATOR
+                                     . str_replace(wire('config')->paths->root, '', dirname($stylesheet['absolute_path']))
+                                     . DIRECTORY_SEPARATOR;
+                             $_less_parser->SetImportDirs([ dirname($stylesheet['absolute_path']) . DIRECTORY_SEPARATOR => $relativeDirectory ] );
+                        }
                         $_less_parser->parse($_css_src);
+                        if($lessVars) $_less_parser->ModifyVars($lessVars);
                         $_css_src       = $_less_parser->getCss();
 
                     } catch(Exception $error) {
