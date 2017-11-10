@@ -14,7 +14,7 @@
         &lt;IfModule mod_rewrite.c&gt;<br>
         <br>
         &nbsp;&nbsp;&nbsp;&nbsp;RewriteCond %{HTTP_HOST} ^static.mysite.com [NC]<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;RewriteCond %{REQUEST_URI} !^.*\.(cur|gif|ico|jpe?g|png|svgz?|webp|eot|otf|ttc|ttf|woff|css|js)$<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;RewriteCond %{REQUEST_URI} !^.*\.(cur|gif|ico|jpe?g|png|svgz?|webp|eot|otf|ttc|ttf|woff|woff2|css|js)$<br>
         &nbsp;&nbsp;&nbsp;&nbsp;RewriteRule ^(.*)$ http://www.mysite.com%{REQUEST_URI} [L,QSA]<br>
         <br>
         &lt;/IfModule&gt;

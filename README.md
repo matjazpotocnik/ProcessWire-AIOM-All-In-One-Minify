@@ -5,6 +5,8 @@
 
 AIOM+ (All In One Minify) is a ProcessWire module to easily improve the performance of your website. By a simple function call Stylesheets, LESS  and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding).
 
+**NOTE**: This forked version includes several pull requests, fixes and modifications. See CHANGELOG.md or sources for more info.
+
 - - - 
 
 #### Information ####
