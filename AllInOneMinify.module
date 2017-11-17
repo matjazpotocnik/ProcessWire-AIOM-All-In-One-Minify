@@ -973,10 +973,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             self::_clearCache(true);
 
             //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/62
-            $pageRender = wire('modules')->PageRender;
-            if($pageRender) {
-                CacheFile::removeAll(wire('config')->paths->cache . PageRender::cacheDirName . "/");
-            }
+            //$pageRender = wire('modules')->PageRender;
+            //if($pageRender) {
+                if(file_exists(wire('config')->paths->cache.PageRender::cacheDirName."/")) CacheFile::removeAll(wire('config')->paths->cache.PageRender::cacheDirName."/");
+                //CacheFile::removeAll(wire('config')->paths->cache . PageRender::cacheDirName . "/");
+            //}
 
             // ------------------------------------------------------------------------
             // Redirect to module configuration.
