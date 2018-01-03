@@ -127,7 +127,7 @@ The same you can do with ```AIOM::JS()```. ```loadOn``` must be an [ProcessWire 
 ## Directory Traversal Filter ##
 
 By default, only files can be included, which are in ProcessWire template folder. If you wish to add files outside that folder, you have to activate the backend "Allow Directory Traversal" option. Then you can jump back in the path. For example: 
-```html+php 
+```html+php
 AIOM::CSS('../third-party-packages/package/css/example.css');
 ```
 **All paths are still automatically corrected!**
@@ -138,7 +138,7 @@ To further enhance the performance and to give you maximum flexibility in the co
 
 ## Exemplary template structure ##
 
-```/
+```
 site/
     templates/
         css/
@@ -156,6 +156,10 @@ The generated HTML source code is automatically minimized when rendering. This r
 If you are currently in development of the site, caching can be a problem. For this, you can enable the development mode since version 1.1.0 in the Backend (Module > AIOM > Config). The files will be combined, but not minimized and re-generated at each call. In addition, a no-cache GET parameter is appended with a timestamp to prevent the browser caching. For example: ```css_031ea978b0e6486c828ba444c6297ca5_dev.css?no-cache=1335939007```
 
 ## Changelog ##
+
+3.2.5
+
+* Using https://github.com/voku/HtmlMin to minimize html (Matjaž Potočnik)
 
 3.2.4
 
