@@ -1,3 +1,56 @@
+# Changelog 3.1.6
+
+- fix: keep HTML closing tags in <script> tags 
+
+
+# Changelog 3.1.5
+
+- fix: keep newlines in e.g. "pre"-tags
+- fix: remove newlines from "srcset" and "sizes" attribute
+
+
+# Changelog 3.1.4
+
+- fix: get parent node
+- code-style: remove "true" && "false" if return type is bool
+
+
+# Changelog 3.1.1 / 3.1.2 / 3.1.3
+
+- use new version of "voku/simple_html_dom"
+
+
+# Changelog 3.1.0
+
+- add "HtmlMinDomObserverInterface" (+ HtmlMin as Observable)
+- use phpcs fixer
+
+
+# Changelog 3.0.6 (2018-12-01)
+
+- implement the "<nocompress>"-tag + tests
+
+
+# Changelog 3.0.5 (2018-10-17)
+
+- update vendor (voku/simple_html_dom >= v4.1.7) + fix entities (&lt;, &gt;)
+
+
+# Changelog 3.0.4 (2018-10-07)
+
+- update vendor (voku/simple_html_dom >= v4.1.6) + option for keep broken html
+
+
+# Changelog 3.0.3 (2018-05-08)
+
+- update vendor (voku/simple_html_dom >= v4.1.4)
+
+
+# Changelog 3.0.2 (2018-02-12)
+
+- fix regex for self-closing tags
+
+
 # Changelog 3.0.1 (2017-12-29)
 
 - update vendor (voku/simple_html_dom >= v4.1.3)

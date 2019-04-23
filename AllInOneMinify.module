@@ -28,7 +28,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * This is an modified version made by matjazpotocnik and include several fixes
- * @version 3.2.4
+ * @version 3.2.5
  * github-fork: https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify
  *
  * @changelog
@@ -81,7 +81,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // ------------------------------------------------------------------------
             'version' => 325,
 
-            'author' => 'David Karich & Conclurer GbR, kixe, Philzen, TomS, BernhardBaumrock, gingebaker, janKir',
+            'author' => 'David Karich & Conclurer GbR, kixe, Philzen, TomS, BernhardBaumrock, gingebaker, janKir, matjazpotocnik',
 
             // ------------------------------------------------------------------------
             // Summary is brief description of what this module is
@@ -106,6 +106,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // Note that autoload modules are almost always also 'singular' (seen above).
             // ------------------------------------------------------------------------
             'autoload' => true,
+            'requires'  => 'PHP>=7.0.0', // \voku\helper\HtmlMin()
         );
     }
 
@@ -158,13 +159,24 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         // ------------------------------------------------------------------------
         // Define checkbox field to enable or disable the HTML minimization.
         // ------------------------------------------------------------------------
-        $field              = wire('modules')->get('InputfieldCheckbox');
+        /*$field              = wire('modules')->get('InputfieldCheckbox');
         $field->name        = 'html_minify';
         $field->label       = __('HTML minify');
         $field->columnWidth = 25;
         $field->value       = (isset($data['html_minify'])) ? $data['html_minify'] : 1;
         $field->checked     = ($field->value == 1) ? 'checked' : '';
         $field->description = __('In order to remove unnecessary whitespace and comments from the HTML source code, enable this option.');
+        $fields->add($field);*/
+
+        $field                = wire('modules')->get('InputfieldRadios');
+        $field->name          = 'html_minify';
+        $field->label       = __('HTML minify label');
+        $field->columnWidth = 25;
+        $field->addOption('html_minify_off', __('Do not minify HTML'));
+        $field->addOption('html_minify_original', __('Use original HTML minifyer'));
+        $field->addOption('html_minify_voku', __('Use voku HTML Compressor and Minifier'));
+        $field->value         = (isset($data['html_minify'])) ? $data['html_minify'] : array();
+        $field->description = __('In order to remove unnecessary whitespace and comments from the HTML source code, use this option.');
         $fields->add($field);
 
         // ------------------------------------------------------------------------
@@ -341,9 +353,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         $this->max_cache_lifetime   = 2419200;
 
         // ------------------------------------------------------------------------
-        // Enable or disable HTML source code minify (default: true)
+        // Enable or disable HTML source code minify (default: false)
         // ------------------------------------------------------------------------
-        $this->html_minify          = 1;
+        $this->html_minify          = 0;
 
         // ------------------------------------------------------------------------
         // Enable or disable development mode (Combine but no minimizing)
@@ -381,7 +393,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         self::$cssCachePrefix       = wire('sanitizer')->name($this->stylesheet_prefix);
         self::$jsCachePrefix        = wire('sanitizer')->name($this->javascript_prefix);
         self::$cacheMaxLifetime     = self::_sanitizeNumericCacheTime($this->max_cache_lifetime);
-        self::$enableHTMLMinify     = ($this->html_minify == 1) ? true : false;
+        self::$enableHTMLMinify     = ($this->html_minify === false OR $this->html_minify === 'html_minify_off') ? false : true;
         self::$developmentMode      = ($this->development_mode == 1) ? true : false;
         self::$directoryTraversal   = ($this->directory_traversal == 1) ? true : false;
         self::$domainSharding       = self::_validateURL($this->domain_sharding);
@@ -540,6 +552,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         //https://github.com/Philzen/ProcessWire-AIOM-All-In-One-Minify/commit/a7d7dbc0f1d484eb16b00c6d1378d24c086d8a09
         $isVirtualHost = $_SERVER['DOCUMENT_ROOT'] !== str_replace($_SERVER['SCRIPT_NAME'], '', $_SERVER['SCRIPT_FILENAME']);
 
+
         // ------------------------------------------------------------------------
         // Check if there is already a combined and cached file. If not,
         // generating a new minimized cache file.
@@ -592,7 +605,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             //                (for obvious reasons).
             //              - Definition of custom functions.
             //------------------------------------------------------------------------
-            require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'Less'.DIRECTORY_SEPARATOR.'Less.php');
+            //require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'Less'.DIRECTORY_SEPARATOR.'Less.php');
 
             // ------------------------------------------------------------------------
             // Expire all CacheFiles
@@ -630,6 +643,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
                 // If LESS file then run LESS parser.
                 // ------------------------------------------------------------------------
                 if($stylesheet['file_extension'] === 'less') {
+                    require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'Less'.DIRECTORY_SEPARATOR.'Less.php');
                     try {
                         $_less_parser   = new Less_Parser();
                         //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/pull/50/commits/7c0c6f333459faf4c9156546fcc635ce26c73f8f
@@ -653,7 +667,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
                 // ------------------------------------------------------------------------
                 //https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
                 //$cssMin = new CSSmin();
-                $cssMin = new Minifier();
+                $cssMin = new \tubalmartin\CssMin\Minifier();
                 $_css_src   = (!empty($_css_src) AND self::$developmentMode !== true AND !self::_isMinimized($stylesheet['absolute_path'])) ? $cssMin->run($_css_src) : $_css_src;
                 $_css      .= $_css_src;
             }
@@ -764,6 +778,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         // Create a unique MD5 file name with the specified prefix.
         // ------------------------------------------------------------------------
         return (self::$developmentMode !== true) ? $prefix.md5($_timestamp).$ext : $prefix.md5($_timestamp).'_dev'.$ext;
+
+        //alternative
+        //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/64#issuecomment-360468349
+        //$hash = md5(print_r($files, true));
+        //return (self::$developmentMode !== true) ? $prefix.$hash.$ext : $prefix.$hash.'_dev'.$ext;
     }
 
     /**
@@ -797,8 +816,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // ------------------------------------------------------------------------
             if(!is_file($_asset_file)) {
                 $msg = wire('config')->paths->templates . $_asset_file . ' does not exist';
-                if(function_exists('fl')) fl($msg);
-                else wire('log')->save('aiom', $msg);
+                /*if(function_exists('fl')) fl($msg);
+                else*/ wire('log')->save('aiom', $msg);
                 continue;
             }
 
@@ -1105,6 +1124,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
      * @return [type]
      */
     protected function HTML($event) {
+        //$timer = Debug::timer();
 
         // ------------------------------------------------------------------------
         // Don't process the admin pages
@@ -1116,13 +1136,20 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         // ------------------------------------------------------------------------
         // Minify HTML source code
         // ------------------------------------------------------------------------
-        require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
 
-        //$event->return = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $event->return);
-        //$event->return = preg_replace('/>\s+</s', '><', $event->return);
-        $htmlMin = new voku\helper\HtmlMin();
-        $htmlMin->doRemoveOmittedHtmlTags(false); //to preserve </body>
-        $event->return = $htmlMin->minify($event->return);
+        if($this->html_minify === "html_minify_original") {
+            $event->return = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $event->return);
+            $event->return = preg_replace('/>\s+</s', '><', $event->return);
+        } else if($this->html_minify === "html_minify_voku") {
+            require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
+            $htmlMin = new \voku\helper\HtmlMin();
+            $htmlMin->doRemoveOmittedHtmlTags(false); //to preserve </body>
+            $event->return = $htmlMin->minify($event->return);
+        } else {
+            //should not be reached
+        }
+        //Debug::saveTimer($timer, 'finish');
+        //echo "timer:" . Debug::getSavedTimer($timer);
     }
 }
 

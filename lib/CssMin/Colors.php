@@ -1,6 +1,6 @@
 <?php
 
-//namespace tubalmartin\CssMin;
+namespace tubalmartin\CssMin;
 
 class Colors
 {

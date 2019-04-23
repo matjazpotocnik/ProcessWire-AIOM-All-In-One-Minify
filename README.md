@@ -5,7 +5,7 @@
 
 AIOM+ (All In One Minify) is a ProcessWire module to easily improve the performance of your website. By a simple function call Stylesheets, LESS  and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding).
 
-**NOTE**: This forked version includes several pull requests, fixes and modifications. See CHANGELOG.md or sources for more info.
+**NOTE**: This forked version includes several pull requests, fixes and modifications. See CHANGELOG.md or sources for more info (matjazpotocnik).
 
 - - - 
 
@@ -149,11 +149,13 @@ site/
 
 The generated HTML source code is automatically minimized when rendering. This requires no change to the templates. Conditional Comments, textareas, code tags, etc. are excluded from the minimization.
 
+**NOTE**: The original version of HTML minimizer uses regex expresions to compress HTML source. It's fast and simple, while voku HTML Compressor and Minifier is more sofisticated and robust, but a littel slower. I recommend sticking with the original and use voku if neede (matjazpotocnik).
+
 **NOTE**: AIOM+ removes all whitespaces between two tags. If you explicitly need a whitespace, change the whitespace into an HTML entity: ```&nbsp;```. See ([#6](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/6))
 
 ## Development mode ##
 
-If you are currently in development of the site, caching can be a problem. For this, you can enable the development mode since version 1.1.0 in the Backend (Module > AIOM > Config). The files will be combined, but not minimized and re-generated at each call. In addition, a no-cache GET parameter is appended with a timestamp to prevent the browser caching. For example: ```css_031ea978b0e6486c828ba444c6297ca5_dev.css?no-cache=1335939007```
+If you are currently in development of the site, caching can be a problem. For this, you can enable the development mode since version in the Backend (Module > AIOM > Config). The files will be combined, but not minimized and re-generated at each call. In addition, a no-cache GET parameter is appended with a timestamp to prevent the browser caching. For example: ```css_031ea978b0e6486c828ba444c6297ca5_dev.css?no-cache=1335939007```
 
 ## Changelog ##
 
