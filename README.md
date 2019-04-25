@@ -149,7 +149,7 @@ site/
 
 The generated HTML source code is automatically minimized when rendering. This requires no change to the templates. Conditional Comments, textareas, code tags, etc. are excluded from the minimization.
 
-**NOTE**: The original version of HTML minimizer uses regex expresions to compress HTML source. It's fast and simple, while voku HTML Compressor and Minifier is more sofisticated and robust, but a littel slower. I recommend sticking with the original and use voku if neede (matjazpotocnik).
+**NOTE**: The original version of HTML minimizer uses preg_replace (regex expresions) to compress HTML source. It's fast and simple, while [voku HTML Compressor and Minifier](https://github.com/voku/HtmlMin) is more sofisticated and robust, but a little slower. I recommend sticking with the original and use voku if needed (matjazpotocnik).
 
 **NOTE**: AIOM+ removes all whitespaces between two tags. If you explicitly need a whitespace, change the whitespace into an HTML entity: ```&nbsp;```. See ([#6](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/6))
 

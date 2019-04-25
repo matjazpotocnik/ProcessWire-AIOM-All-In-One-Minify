@@ -28,7 +28,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * This is an modified version made by matjazpotocnik and include several fixes
- * @version 3.2.5
+ * @version 3.2.6
  * github-fork: https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify
  *
  * @changelog
@@ -79,7 +79,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // ------------------------------------------------------------------------
             // Version: major, minor, revision, i.e. 110 = 1.1.0
             // ------------------------------------------------------------------------
-            'version' => 325,
+            'version' => 326,
 
             'author' => 'David Karich & Conclurer GbR, kixe, Philzen, TomS, BernhardBaumrock, gingebaker, janKir, matjazpotocnik',
 
@@ -168,15 +168,16 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         $field->description = __('In order to remove unnecessary whitespace and comments from the HTML source code, enable this option.');
         $fields->add($field);*/
 
+        //MP
         $field                = wire('modules')->get('InputfieldRadios');
         $field->name          = 'html_minify';
-        $field->label       = __('HTML minify label');
+        $field->label       = __('HTML minify');
         $field->columnWidth = 25;
         $field->addOption('html_minify_off', __('Do not minify HTML'));
         $field->addOption('html_minify_original', __('Use original HTML minifyer'));
         $field->addOption('html_minify_voku', __('Use voku HTML Compressor and Minifier'));
-        $field->value         = (isset($data['html_minify'])) ? $data['html_minify'] : array();
-        $field->description = __('In order to remove unnecessary whitespace and comments from the HTML source code, use this option.');
+        $field->value         = (isset($data['html_minify'])) ? $data['html_minify'] : 'html_minify_off';
+        $field->description = __('In order to remove unnecessary whitespace and comments from the HTML source code, enable this option.');
         $fields->add($field);
 
         // ------------------------------------------------------------------------
@@ -188,7 +189,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         $field->columnWidth = 25;
         $field->value       = (isset($data['development_mode'])) ? $data['development_mode'] : 0;
         $field->checked     = ($field->value == 1) ? 'checked' : '';
-        $field->description = __('Enable development mode to prevent caching by the browser and not to minimize the files.');
+        $field->description = __('Enable development mode to prevent caching by the browser, to generate a SourceMap file and not to minimize the files.');
         $fields->add($field);
 
         // ------------------------------------------------------------------------
@@ -471,7 +472,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             //              from stdin and outputs to stdout, this library accepts a
             //              string as input and returns another string as output.
             //------------------------------------------------------------------------
-            require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'JSMin-v2.1.7.php');
+            //require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'JSMin-v2.1.7.php');
+            require_once(wire('config')->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'JSMin.php');
 
             // ------------------------------------------------------------------------
             // Expire all CacheFiles
@@ -651,8 +653,15 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
                              $relativeDirectory = DIRECTORY_SEPARATOR
                                      . str_replace(wire('config')->paths->root, '', dirname($stylesheet['absolute_path']))
                                      . DIRECTORY_SEPARATOR;
-                             $_less_parser->SetImportDirs([ dirname($stylesheet['absolute_path']) . DIRECTORY_SEPARATOR => $relativeDirectory ] );
+                             $_less_parser->SetImportDirs([ dirname($stylesheet['absolute_path']) . DIRECTORY_SEPARATOR => $relativeDirectory ]);
                         }
+                        //https://github.com/gr4y/ProcessWire-AIOM-All-In-One-Minify/commit/e4fc75f2b9e92dc8ab09573c985f3f900b71cb43
+                        // ------------------------------------------------------------------------
+                        // In Development Mode a SourceMap will be generated
+                        // ------------------------------------------------------------------------
+                        $_less_parser->SetOptions([
+                            'sourceMap' => self::$developmentMode,
+                        ]);
                         $_less_parser->parse($_css_src);
                         if($lessVars) $_less_parser->ModifyVars($lessVars);
                         $_css_src       = $_less_parser->getCss();
@@ -1140,6 +1149,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         if($this->html_minify === "html_minify_original") {
             $event->return = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $event->return);
             $event->return = preg_replace('/>\s+</s', '><', $event->return);
+            $event->return = str_replace(' type="text/javascript"', '', $event->return);
+            $event->return = str_replace(' type="text/css"', '', $event->return);
         } else if($this->html_minify === "html_minify_voku") {
             require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
             $htmlMin = new \voku\helper\HtmlMin();

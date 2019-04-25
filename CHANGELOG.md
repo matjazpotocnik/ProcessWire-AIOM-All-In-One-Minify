@@ -28,4 +28,8 @@ https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/b6ad1495f781ed
 
 https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/67
 
+https://gist.github.com/recca0120/5930842de4e0a43a48b8bf027ab058f9
+
+https://github.com/gr4y/ProcessWire-AIOM-All-In-One-Minify/commit/e4fc75f2b9e92dc8ab09573c985f3f900b71cb43
+
 https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
