@@ -780,7 +780,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
             //https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/64
             //https://processwire.com/talk/topic/17610-problem-when-use-aiom-module/?tab=comments#comment-154782
-            $_timestamp += ($file['last_modified'] + hexdec(md5(basename($file['absolute_path']))));
+            $_timestamp += (int) ($file['last_modified'] + hexdec(md5(basename($file['absolute_path']))));
         }
 
         // ------------------------------------------------------------------------
@@ -1149,8 +1149,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         if($this->html_minify === "html_minify_original") {
             $event->return = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $event->return);
             $event->return = preg_replace('/>\s+</s', '><', $event->return);
-            $event->return = str_replace(' type="text/javascript"', '', $event->return);
-            $event->return = str_replace(' type="text/css"', '', $event->return);
         } else if($this->html_minify === "html_minify_voku") {
             require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
             $htmlMin = new \voku\helper\HtmlMin();
