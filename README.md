@@ -3,11 +3,13 @@
 #### Simple minify and parsing for CSS, LESS, JS and HTML ####
 -----------------------------
 
-AIOM+ (All In One Minify) is a ProcessWire module to easily improve the performance of your website. By a simple function call Stylesheets, LESS  and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding).
+AIOM+ (All In One Minify) is a ProcessWire module to easily improve the performance of your website. By a simple function call Style sheets, LESS and JavaScript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code, Style sheets and JavaScript files can be minimized automatically and all generated files can be loaded over a Cookieless domain (domain sharding).
 
-**NOTE**: This forked version includes several pull requests, fixes and modifications. See CHANGELOG.md or sources for more info (matjazpotocnik).
+**NOTE**: This forked version includes several pull requests, fixes and modifications. See the changelog at the end of this document or CHANGELOG.md or sources for more info (matjazpotocnik). 
 
-- - - 
+**NOTE:** Minimizing process increase the page rendering time. If you're concerned about that, then don't use this module and rather minimize the files yourself and configure the web server to compress static files (gzip) or use [ProCache](https://processwire.com/store/pro-cache/).
+
+- - -
 
 #### Information ####
 
@@ -15,13 +17,13 @@ AIOM+ (All In One Minify) is a ProcessWire module to easily improve the performa
 * If you make changes to the source stylesheet, LESS or javascript files, a new parsed and combined version is created automatically.
 * All parameters can be adjusted via the backend.
 * During development, you can enable developer mode. Files are parsed and combined, but not minimized and browser caching is prevented.
-* You can use the short syntax ```AIOM``` or use the full class name ```AllInOneMinify``` in your templates.
+* You can use the short syntax ```\AIOM``` or use the full class name ```\AllInOneMinify``` in your templates.
 * The generated files can be delivered via a subdomain (Domain sharding / Cookieless domain)
-* LESS files can directly server side generated on the fly, without plugins. AIOM+ has a complete, high-performance PHP ported LESS library of the official LESS processor included! 
+* LESS files can directly server-side generated on the fly, without plugins. AIOM+ has a complete, high-performance PHP ported LESS library of the official LESS processor included! 
 * **NOTE**: There are a few unsupported LESS features: 
     * Evaluation of JavaScript expressions within back-ticks (for obvious reasons)
     * Definition of custom functions
-* Conditional loading of files based on a API selector
+* Conditional loading of files based on an API selector
 
 ## Table of content ##
 
@@ -50,16 +52,16 @@ Minimization of a single file.
 
 ```html+php
 <!-- CSS Stylesheet -->
-<link rel="stylesheet" type="text/css" href="<?php echo AllInOneMinify::CSS('css/stylesheet.css'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.css'); ?>">
 
 <!-- LESS file -->
-<link rel="stylesheet" type="text/css" href="<?php echo AllInOneMinify::CSS('css/stylesheet.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.less'); ?>">
 ```
 
 Minimize multiple files into one file. You can even mix stylesheet and LESS files in parsing and combining process!
 
 ```html+php
-<link rel="stylesheet" href="<?php echo AllInOneMinify::CSS(array('css/file-1.css', 'css/file-2.less', 'css/file-3.css', 'css/file-4.less')); ?>">
+<link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS(array('css/file-1.css', 'css/file-2.less', 'css/file-3.css', 'css/file-4.less')); ?>">
 ```
 
 **Tip:** You can also use the short syntax **"AIOM"**. For example, ```AIOM::CSS()```.
@@ -69,9 +71,9 @@ Minimize multiple files into one file. You can even mix stylesheet and LESS file
 You have a LESS file in which you are defining, for example, all colors and another LESS file that defines the actual layout? Now you need in the layout LESS file access to the variables of the color LESS file? It's easier than you think. Through a simple referencing of source LESS file. For example: 
 
 ```html+php
-<link rel="stylesheet" type="text/css" href="<?php echo AllInOneMinify::CSS('css/color.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/color.less'); ?>">
 ...
-<link rel="stylesheet" type="text/css" href="<?php echo AllInOneMinify::CSS('css/layout.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/layout.less'); ?>">
 ```
 
 Example content of ```color.less```
@@ -90,7 +92,7 @@ body {
 }
 ```
 
-That's all. Pretty, hu? The full documentation of LESS you can find at: www.lesscss.org
+That's all. Pretty, hu? The full documentation of LESS you can find at www.lesscss.org
 
 
 ## Minimize Javascripts ##
@@ -98,16 +100,16 @@ That's all. Pretty, hu? The full documentation of LESS you can find at: www.less
 Minimization of a single file.
 
 ```html+php
-<script src="<?php echo AllInOneMinify::JS('js/javascript.js'); ?>"></script>
+<script src="<?php echo \AllInOneMinify::JS('js/javascript.js'); ?>"></script>
 ```
 
 Minimize multiple files into one file.
 
 ```html+php
-<script src="<?php echo AllInOneMinify::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?>"></script>
+<script src="<?php echo \AllInOneMinify::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?>"></script>
 ```
 
-**Tip:** You can also use the short syntax **"AIOM"**. For example, ```AIOM::JS()```.
+**Tip:** You can also use the short syntax **"AIOM"**. For example, ```\AIOM::JS()```.
 
 ## Conditional loading ##
 
@@ -119,22 +121,22 @@ Since AIOM+ version 3.1.1 javascripts, stylesheets and LESS files can be loaded 
 					        array('loadOn'  => 'id|template=1002|1004|sitemap', 
 						          'files'   => array('css/special.css', 'css/special-theme.less'))); ?>
 						          
-<link rel="stylesheet" type="text/css" href="<?php echo AllInOneMinify::CSS($stylesheets); ?>" />
+<link rel="stylesheet" type="text/css" href="<?php echo \AIOM::CSS($stylesheets); ?>" />
 ```
 
-The same you can do with ```AIOM::JS()```. ```loadOn``` must be an [ProcessWire API selector](http://processwire.com/api/selectors/).
+The same you can do with ```\AIOM::JS()```. ```loadOn``` must be an [ProcessWire API selector](http://processwire.com/api/selectors/).
 
 ## Directory Traversal Filter ##
 
-By default, only files can be included, which are in ProcessWire template folder. If you wish to add files outside that folder, you have to activate the backend "Allow Directory Traversal" option. Then you can jump back in the path. For example: 
+By default, only files can be included, which are in the ProcessWire template folder. If you wish to add files outside that folder, you have to activate the backend "Allow Directory Traversal" option. Then you can jump back in the path. For example: 
 ```html+php
-AIOM::CSS('../third-party-packages/package/css/example.css');
+\AIOM::CSS('../third-party-packages/package/css/example.css');
 ```
 **All paths are still automatically corrected!**
 
 ## Already minimized files no longer minimized ##
 
-To further enhance the performance and to give you maximum flexibility in the combining process, you now have the option to exclude certain files from the minimization (since version 2.2). All files that have the abbreviation ".min" or "-min" at the end of the file name and before the file extension, are no longer minimized. For example: ```file-1.js``` is minimized. ```file-1-min.js``` or ```file-1.min.js``` is not minimized. The same for CSS. ```file-1.css``` is minimized. ```file-1-min.css``` or ```file-1.min.css``` is not minimized.
+To further enhance the performance and to give you the maximum flexibility in the combining process, you now have the option to exclude certain files from the minimization (since version 2.2). All files that have the abbreviation ".min" or "-min" at the end of the file name and before the file extension, are no longer minimized. For example, ```file-1.js``` is minimized. ```file-1-min.js``` or ```file-1.min.js``` is not minimized. The same for CSS. ```file-1.css``` is minimized. ```file-1-min.css``` or ```file-1.min.css``` is not minimized.
 
 ## Exemplary template structure ##
 
@@ -147,11 +149,35 @@ site/
 
 ## Minimize HTML ##
 
-The generated HTML source code is automatically minimized when rendering. This requires no change to the templates. Conditional Comments, textareas, code tags, etc. are excluded from the minimization.
+The generated HTML source code is automatically minimized when rendering. This requires no change to the templates. Conditional Comments, textareas, code tags, etc. are excluded from the minimization. 
 
-**NOTE**: The original version of HTML minimizer uses preg_replace (regex expresions) to compress HTML source. It's fast and simple, while [voku HTML Compressor and Minifier](https://github.com/voku/HtmlMin) is more sofisticated and robust, but a little slower. I recommend sticking with the original and use voku if needed (matjazpotocnik).
+## Minimize CSS
 
-**NOTE**: AIOM+ removes all whitespaces between two tags. If you explicitly need a whitespace, change the whitespace into an HTML entity: ```&nbsp;```. See ([#6](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/6))
+The HTML source code is search for links to Stylesheet (.css) files and automatically replaced with minimized version. This requires no change to the templates, but add a few milliseconds to the rendering time. The following line:
+
+```html+php
+<link rel="stylesheet" href="<?php echo $config->site->templates . 'file.css'; ?>">
+```
+
+is replaced with:
+
+```html+php
+<link rel="stylesheet" href="/site/assets/aiom/css_81c54f1249c3deab897bb50ba39eaf5.css">
+```
+
+## Minimize JS
+
+The HTML source code is search for JavaScript files (.js) and automatically replaced with minimized version. This requires no change to the templates, but add a few milliseconds to the rendering time. The following line:
+
+```html+php
+<script src="<?php echo $config->site->templates . 'file.js'; ?>">
+```
+
+is replaced with:
+
+```html+php
+<script src="/site/assets/aiom/js_81c54f1249c3deab897bb50ba39eaf5.js">
+```
 
 ## Development mode ##
 
@@ -159,17 +185,22 @@ If you are currently in development of the site, caching can be a problem. For t
 
 ## Changelog ##
 
+3.2.6
+
+- Added options to automatically minimize JS and CSS files (Matjaž Potočnik)
+- Using the original HTML minimize algorithm instead of voku - it's faster (Matjaž Potočnik)
+
 3.2.5
 
 * Using https://github.com/voku/HtmlMin to minimize html (Matjaž Potočnik)
 
 3.2.4
 
-* Lot of fixes, see CHANGELOG.md (Matjaž Potočnik) 
+* A lot of fixes, see CHANGELOG.md (Matjaž Potočnik) 
 
 3.2.3
 
-* Typo fix in variable (Thanks to SteveB)
+* Typo fix in a variable (Thanks to SteveB)
 
 3.2.2
 
@@ -208,12 +239,12 @@ If you are currently in development of the site, caching can be a problem. For t
   * fix undefined variable
 * New CSSMin version: Update script to version 1.1.2
   * Some improvements
-  * Bugfix: Broken rule for firefox 27.0.1 (Animation second "s" lost)
+  * Bugfix: Broken rule for Firefox 27.0.1 (Animation second "s" lost)
 * Push to stable
 
 3.1.2 
 
-* New feature: Enable or disable directory traversal filter in backend ([#12](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/12))
+* New feature: Enable or disable directory traversal filter in the backend ([#12](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/12))
 * New LESS version: Update parser to Version 1.7
 
 3.1.1
@@ -229,7 +260,7 @@ If you are currently in development of the site, caching can be a problem. For t
 
 * AIOM+ tested with ProcessWire 2.4
 * Module now multilingual
-* New feature: LESS support (direct parsing and minimization server side on the fly)
+* New feature: LESS support (direct parsing and minimization server-side on the fly)
 * Update readme / documentation
 
 2.2.2 
@@ -244,7 +275,7 @@ If you are currently in development of the site, caching can be a problem. For t
 
 2.2.0
 
-* New feature: File is not minimized when ".min" or "-min" is at the end of the filename. For example: ```file-1.min.js```.
+* New feature: File is not minimized when ".min" or "-min" is at the end of the filename. For example ```file-1.min.js```.
 * Update CSSMin library to Version 1.1 (inspired by Yahoo! YUI compressor)
 * Update JSMin library to Version 2.7.1 (Security fix, recommended update)
 * Performance improvements on first minification
@@ -282,17 +313,10 @@ If you are currently in development of the site, caching can be a problem. For t
 * New option: enable/disable HTML minify
 * New option: enable/disable development mode (combine but no minimizing)
 * Some optimizations
- 
+
 1.0.0  
 * Initial release
 
 ## Questions or comments? ##
 
 For any questions, suggestions or bugs please create a ticket on [GitHub](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues). 
-
-
-## Old stable Version needed? ##
-
-Under the following link you can find the old stable version of AIOM without LESS support: https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/tree/AIOM-(old-Stable-2.2.2)
-
-[![Analytics](https://ga-beacon.appspot.com/UA-7951064-10/ProcessWire-AIOM-All-In-One-Minify/blob/master/README.md?pixel)](https://github.com/igrigorik/ga-beacon)
