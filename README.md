@@ -185,6 +185,10 @@ If you are currently in development of the site, caching can be a problem. For t
 
 ## Changelog ##
 
+3.2.8
+
+- Fixed minify process when css/js files in html source has query strings
+
 3.2.6
 
 - Added options to automatically minimize JS and CSS files (Matjaž Potočnik)

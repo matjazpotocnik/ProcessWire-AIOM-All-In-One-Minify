@@ -81,7 +81,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // ------------------------------------------------------------------------
             // Version: major, minor, revision, i.e. 110 = 1.1.0
             // ------------------------------------------------------------------------
-            'version' => 327,
+            'version' => 328,
 
             'author' => 'David Karich & Conclurer GbR, kixe, Philzen, TomS, gingebaker, janKir, gr4y, matjazpotocnik',
 
@@ -108,7 +108,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // Note that autoload modules are almost always also 'singular' (seen above).
             // ------------------------------------------------------------------------
             'autoload' => true,
-            'requires'  => 'PHP>=7.0.0', // \voku\helper\HtmlMin()
+            'requires'  => 'PHP>=7.1.3', // \voku\helper\HtmlMin()
         );
     }
 
@@ -146,7 +146,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         $field->columnWidth = 34;
         $field->value       = (isset($data['css_minify'])) ? $data['css_minify'] : 0;
         $field->checked     = ($field->value == 1) ? 'checked' : '';
-        $field->description = __('In order to minify Javascript source files, enable this option.');
+        $field->description = __('In order to minify CSS source files, enable this option.');
         $fields->add($field);
 
         // ------------------------------------------------------------------------
@@ -916,27 +916,29 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
         //https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/bd6217545a46f64478577f68a8e22e42cf987278
         $return = array();
+        $config = wire('config');
 
         // ------------------------------------------------------------------------
         // Filter Directory Traversal (default: yes)
-        // Check existence and whether there is internal/ external source.
+        // Check existence and whether there is internal/external source.
         // ------------------------------------------------------------------------
         //$_path  = (self::$directoryTraversal !== true) ? str_ireplace(array('../', './', '%2e%2e%2f', '..%2F'), '', wire('config')->paths->templates.$_file) : wire('config')->paths->templates.$_file;
-        if (strpos($_file,'/') === 0) $_path = rtrim(wire('config')->paths->root,'/').$_file;
-            //else if (strpos($_file,'http') === 0) {
-            else if (strpos($_file,'http') === 0 && self::_checkRemoteFileAccess($_file)) {
+        if (strpos($_file,'/') === 0) {
+            $_path = rtrim($config->paths->root,'/').$_file;
+            //MP leave just filename, remove everything after ?, tipicaly used for cache busting  file.css?v=2.0.1
+            $_path = explode('?',$_path)[0];
+        } else if (strpos($_file, 'http') === 0 && self::_checkRemoteFileAccess($_file)) {
             //https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/6a3b5570c01df4776dafa6e2112fa80e61dfcb04
             // we use max_cache_lifetime as a placeholder because filemtime() doesn't work with http requests
-                $return['last_modified'] = time() - self::$cacheMaxLifetime;
-                //$_path = $file;
-                $_path = $_file;
-            }
-         else {
-             $_path  = (self::$directoryTraversal !== true) ? str_ireplace(array('../', './', '%2e%2e%2f', '..%2F'), '', wire('config')->paths->templates.$_file) : wire('config')->paths->templates.$_file;
-             if (!file_exists($_path)) {
-                wire('log')->save('aiom', $_path . ' does not exist');
-                return null;
-             }
+            $return['last_modified'] = time() - self::$cacheMaxLifetime;
+            $_path = $_file;
+         } else {
+             $_path  = (self::$directoryTraversal !== true) ? str_ireplace(array('../', './', '%2e%2e%2f', '..%2F'), '', $config->paths->templates.$_file) : $config->paths->templates.$_file;
+         }
+
+         if (!file_exists($_path)) {
+             wire('log')->save('aiom', $_path . ' does not exist');
+             return null;
          }
 
         // ------------------------------------------------------------------------
@@ -946,7 +948,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         //if(file_exists($_path) AND self::_stristr_array_needle($_path, $extension)) {
         //https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/6a3b5570c01df4776dafa6e2112fa80e61dfcb04
         if(self::_stristr_array_needle($_path, $extension)) {
-
             // Clear PHP stat() cache
             // ------------------------------------------------------------------------
             clearstatcache();
@@ -1185,37 +1186,37 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
         // Minify HTML source code
         // ------------------------------------------------------------------------
 
-				$html = $event->return;
+        $html = $event->return;
 
         if(self::$enableCSSMinify OR self::$enableJSMinify) {
-        	  require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
+            require_once(wire('config')->paths->AllInOneMinify.'autoload.php');
             $doc = new \voku\helper\HtmlDomParser($html);
             $cdir = wire('config')->urls->assets.self::$cacheDir;
             $tdir = wire('config')->urls->templates;
 
             if(self::$enableCSSMinify) {
-						    $dom = $doc->find('link[rel="stylesheet"]');
-						    foreach($dom as $link) {
-    						    $path = $link->href;
-    						    //MP skip over files already in cache
-    						    if(strpos($path, $cdir) !== false) continue;
-    						    $path = str_replace($tdir, '', $path);
-       					    $link->href = self::CSS($path);
-						    }
-						}
+                $dom = $doc->find('link[rel="stylesheet"]');
+                foreach($dom as $link) {
+                    $path = $link->href;
+                    //MP skip over files already in cache
+                    if(strpos($path, $cdir) !== false) continue;
+                    $path = str_replace($tdir, '', $path);
+                    $link->href = self::CSS($path);
+                }
+            }
 
             if(self::$enableJSMinify) {
-						    $dom = $doc->find('script[src]');
-						    foreach($dom as $link) {
-    						    $path = $link->src;
-    						    //MP skip over files already in cache
-    						    if(strpos($path, $cdir) !== false) continue;
-    						    $path = str_replace($tdir, '', $path);
-       					    $link->src = self::JS($path);
-						    }
-						}
+                $dom = $doc->find('script[src]');
+                foreach($dom as $link) {
+                    $path = $link->src;
+                    //MP skip over files already in cache
+                    if(strpos($path, $cdir) !== false) continue;
+                    $path = str_replace($tdir, '', $path);
+                    $link->src = self::JS($path);
+                }
+            }
 
-						$html = $doc->html();
+            $html = $doc->html();
         }
 
         //if($this->html_minify === "html_minify_original") {

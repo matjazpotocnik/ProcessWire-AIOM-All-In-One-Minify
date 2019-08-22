@@ -1,3 +1,16 @@
+[PHP Simple HTML Dom v4.6.x]
+1: add an XmlDomParser Class + simple tests
+2: add support for text/x-custom-template type
+3: fix -> check result of "html5FallbackForScriptTags()"
+
+[PHP Simple HTML Dom v4.5.x]
+1: fix -> return types
+2: add abstract class and interface for "Dom Elements" (SimpleHtmlDom*)
+3: and abstract class and interface for "Dom Nodes" (SimpleHtmlDomNode*)
+4: fix -> errors reported by phpstan (level 7)
+5: fix -> error with Google AMP (<html ⚡>) & Php DomDocument
+
+
 [PHP Simple HTML Dom v4.4.x]
 1: add "findMulti()" method for "SimpleDomParser"
 2: fix -> phpdoc improvements via phpstan

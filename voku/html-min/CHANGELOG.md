@@ -1,3 +1,24 @@
+# Changelog 4.0.0
+
+- use interfaces in the "HtmlMinDom"-Observer
+
+-> this is a BC, but you can simply replace this classes in your observer implementation:
+
+---> "SimpleHtmlDom" with "SimpleHtmlDomInterface
+
+---> "HtmlMin" with "HtmlMinInterface"   
+
+
+# Changelog 3.1.8
+
+- fix / optimize: "doRemoveOmittedQuotes" -> support for "<html ⚡>" via SimpleHtmlDom
+
+
+# Changelog 3.1.7
+
+- fix: "'" && '"' in attributes
+
+
 # Changelog 3.1.6
 
 - fix: keep HTML closing tags in <script> tags 
