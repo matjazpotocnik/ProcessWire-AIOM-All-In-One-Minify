@@ -20,11 +20,25 @@ interface DomParserInterface
     public function findMulti(string $selector);
 
     /**
+     * Find nodes with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     */
+    public function findMultiOrFalse(string $selector);
+
+    /**
      * Find one node with a CSS selector.
      *
      * @param string $selector
      */
     public function findOne(string $selector);
+
+    /**
+     * Find one node with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     */
+    public function findOneOrFalse(string $selector);
 
     /**
      * @param string $content
@@ -40,7 +54,7 @@ interface DomParserInterface
     public function getDocument(): \DOMDocument;
 
     /**
-     * Return elements by .class.
+     * Return elements by ".class".
      *
      * @param string $class
      */
@@ -61,7 +75,7 @@ interface DomParserInterface
     public function getElementByTagName(string $name);
 
     /**
-     * Returns elements by #id.
+     * Returns elements by "#id".
      *
      * @param string   $id
      * @param int|null $idx

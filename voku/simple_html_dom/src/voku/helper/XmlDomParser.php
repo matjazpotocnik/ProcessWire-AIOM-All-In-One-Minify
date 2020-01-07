@@ -148,6 +148,7 @@ class XmlDomParser extends AbstractDomParser
 
             // UTF-8 hack: http://php.net/manual/en/domdocument.loadhtml.php#95251
             $xmlHackUsed = false;
+            /** @noinspection StringFragmentMisplacedInspection */
             if (\stripos('<?xml', $xml) !== 0) {
                 $xmlHackUsed = true;
                 $xml = '<?xml encoding="' . $this->getEncoding() . '" ?>' . $xml;
@@ -185,7 +186,7 @@ class XmlDomParser extends AbstractDomParser
      * @param string   $selector
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function find(string $selector, $idx = null)
     {
@@ -195,8 +196,10 @@ class XmlDomParser extends AbstractDomParser
         $nodesList = $xPath->query($xPathQuery);
         $elements = new SimpleXmlDomNode();
 
-        foreach ($nodesList as $node) {
-            $elements[] = new SimpleXmlDom($node);
+        if ($nodesList) {
+            foreach ($nodesList as $node) {
+                $elements[] = new SimpleXmlDom($node);
+            }
         }
 
         // return all elements
@@ -222,11 +225,29 @@ class XmlDomParser extends AbstractDomParser
      *
      * @param string $selector
      *
-     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function findMulti(string $selector): SimpleXmlDomNodeInterface
     {
         return $this->find($selector, null);
+    }
+
+    /**
+     * Find nodes with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     *
+     * @return false|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
+     */
+    public function findMultiOrFalse(string $selector)
+    {
+        $return = $this->find($selector, null);
+
+        if ($return instanceof SimpleXmlDomNodeBlank) {
+            return false;
+        }
+
+        return $return;
     }
 
     /**
@@ -239,6 +260,24 @@ class XmlDomParser extends AbstractDomParser
     public function findOne(string $selector): SimpleXmlDomInterface
     {
         return $this->find($selector, 0);
+    }
+
+    /**
+     * Find one node with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     *
+     * @return false|SimpleXmlDomInterface
+     */
+    public function findOneOrFalse(string $selector)
+    {
+        $return = $this->find($selector, 0);
+
+        if ($return instanceof SimpleXmlDomBlank) {
+            return false;
+        }
+
+        return $return;
     }
 
     /**
@@ -255,11 +294,11 @@ class XmlDomParser extends AbstractDomParser
     }
 
     /**
-     * Return elements by .class.
+     * Return elements by ".class".
      *
      * @param string $class
      *
-     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementByClass(string $class): SimpleXmlDomNodeInterface
     {
@@ -297,12 +336,12 @@ class XmlDomParser extends AbstractDomParser
     }
 
     /**
-     * Returns elements by #id.
+     * Returns elements by "#id".
      *
      * @param string   $id
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementsById(string $id, $idx = null)
     {
@@ -315,7 +354,7 @@ class XmlDomParser extends AbstractDomParser
      * @param string   $name
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementsByTagName(string $name, $idx = null)
     {
@@ -354,8 +393,8 @@ class XmlDomParser extends AbstractDomParser
      */
     public function html(bool $multiDecodeNewHtmlEntity = false): string
     {
-        if ($this::$callback !== null) {
-            \call_user_func($this::$callback, [$this]);
+        if (static::$callback !== null) {
+            \call_user_func(static::$callback, [$this]);
         }
 
         $content = $this->document->saveHTML();
@@ -424,7 +463,7 @@ class XmlDomParser extends AbstractDomParser
      * @param string $selector
      * @param int    $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function __invoke($selector, $idx = null)
     {
@@ -487,6 +526,8 @@ class XmlDomParser extends AbstractDomParser
     /**
      * @param callable      $callback
      * @param \DOMNode|null $domNode
+     *
+     * @return void
      */
     public function replaceTextWithCallback($callback, \DOMNode $domNode = null)
     {
@@ -504,6 +545,10 @@ class XmlDomParser extends AbstractDomParser
 
             foreach ($children as $child) {
                 if ($child->nodeType === \XML_TEXT_NODE) {
+                    /** @noinspection PhpSillyAssignmentInspection */
+                    /** @var \DOMText $child */
+                    $child = $child;
+
                     $oldText = self::putReplacedBackToPreserveHtmlEntities($child->wholeText);
                     $newText = $callback($oldText);
                     if ($domNode->ownerDocument) {

@@ -14,7 +14,12 @@ abstract class AbstractDomParser implements DomParserInterface
     /**
      * @var string
      */
-    protected static $domHtmlSpecialScriptHelper = '____simple_html_dom__voku__html_special_sctipt____';
+    protected static $domHtmlBrokenHtmlHelper = '____simple_html_dom__voku__broken_html____';
+
+    /**
+     * @var string
+     */
+    protected static $domHtmlSpecialScriptHelper = '____simple_html_dom__voku__html_special_script____';
 
     /**
      * @var array
@@ -50,7 +55,7 @@ abstract class AbstractDomParser implements DomParserInterface
     ];
 
     /**
-     * @var callable
+     * @var callable|null
      */
     protected static $callback;
 
@@ -196,11 +201,25 @@ abstract class AbstractDomParser implements DomParserInterface
     abstract public function findMulti(string $selector);
 
     /**
+     * Find nodes with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     */
+    abstract public function findMultiOrFalse(string $selector);
+
+    /**
      * Find one node with a CSS selector.
      *
      * @param string $selector
      */
     abstract public function findOne(string $selector);
+
+    /**
+     * Find one node with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     */
+    abstract public function findOneOrFalse(string $selector);
 
     /**
      * @return \DOMDocument
@@ -380,7 +399,7 @@ abstract class AbstractDomParser implements DomParserInterface
                     return $scripts[0];
                 }
 
-                return '<script' . $scripts['attr'] . '>' . str_replace('</', '<\/', $scripts['content']) . '</script>';
+                return '<script' . $scripts['attr'] . '>' . \str_replace('</', '<\/', $scripts['content']) . '</script>';
             },
             $html
         );
@@ -427,10 +446,10 @@ abstract class AbstractDomParser implements DomParserInterface
             &&
             \count(self::$domBrokenReplaceHelper['tmp']) > 0
         ) {
-            $html = \str_replace(self::$domBrokenReplaceHelper['tmp'], self::$domBrokenReplaceHelper['orig'], $html);
+            $html = \str_ireplace(self::$domBrokenReplaceHelper['tmp'], self::$domBrokenReplaceHelper['orig'], $html);
         }
 
-        return \str_replace($DOM_REPLACE__HELPER_CACHE['tmp'], $DOM_REPLACE__HELPER_CACHE['orig'], $html);
+        return \str_ireplace($DOM_REPLACE__HELPER_CACHE['tmp'], $DOM_REPLACE__HELPER_CACHE['orig'], $html);
     }
 
     /**

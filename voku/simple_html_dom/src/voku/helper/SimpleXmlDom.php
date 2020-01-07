@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace voku\helper;
 
-/** @noinspection PhpHierarchyChecksInspection */
+/**
+ * @noinspection PhpHierarchyChecksInspection
+ *
+ * {@inheritdoc}
+ *
+ * @implements \IteratorAggregate<int, \DOMNode>
+ */
 class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, SimpleXmlDomInterface
 {
     /**
@@ -40,7 +46,7 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
      * @param string   $selector
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function find(string $selector, $idx = null)
     {
@@ -50,7 +56,7 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
     /**
      * Returns an array of attributes.
      *
-     * @return array|null
+     * @return string[]|null
      */
     public function getAllAttributes()
     {
@@ -64,6 +70,14 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
         }
 
         return null;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasAttributes(): bool
+    {
+        return $this->node->hasAttributes();
     }
 
     /**
@@ -151,10 +165,17 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
             }
         }
 
-        if (\count($this->node->childNodes) > 0) {
+        /** @var \DOMNode[] $remove_nodes */
+        $remove_nodes = [];
+        if ($this->node->childNodes->length > 0) {
+            // INFO: We need to fetch the nodes first, before we can delete them, because of missing references in the dom,
+            // if we delete the elements on the fly.
             foreach ($this->node->childNodes as $node) {
-                $this->node->removeChild($node);
+                $remove_nodes[] = $node;
             }
+        }
+        foreach ($remove_nodes as $remove_node) {
+            $this->node->removeChild($remove_node);
         }
 
         if (!empty($newDocument)) {
@@ -335,7 +356,7 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
      *
      * @param int $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface|null
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>|null
      */
     public function childNodes(int $idx = -1)
     {
@@ -353,11 +374,23 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
      *
      * @param string $selector
      *
-     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function findMulti(string $selector): SimpleXmlDomNodeInterface
     {
-        return $this->find($selector, null);
+        return $this->getXmlDomParser()->findMulti($selector);
+    }
+
+    /**
+     * Find nodes with a CSS selector.
+     *
+     * @param string $selector
+     *
+     * @return false|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
+     */
+    public function findMultiOrFalse(string $selector)
+    {
+        return $this->getXmlDomParser()->findMultiOrFalse($selector);
     }
 
     /**
@@ -369,7 +402,19 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
      */
     public function findOne(string $selector): SimpleXmlDomInterface
     {
-        return $this->find($selector, 0);
+        return $this->getXmlDomParser()->findOne($selector);
+    }
+
+    /**
+     * Find one node with a CSS selector or false, if no element is found.
+     *
+     * @param string $selector
+     *
+     * @return false|SimpleXmlDomInterface
+     */
+    public function findOneOrFalse(string $selector)
+    {
+        return $this->getXmlDomParser()->findOneOrFalse($selector);
     }
 
     /**
@@ -390,11 +435,11 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
     }
 
     /**
-     * Return elements by .class.
+     * Return elements by ".class".
      *
      * @param string $class
      *
-     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementByClass(string $class): SimpleXmlDomNodeInterface
     {
@@ -436,12 +481,12 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
     }
 
     /**
-     * Returns elements by #id.
+     * Returns elements by "#id".
      *
      * @param string   $id
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementsById(string $id, $idx = null)
     {
@@ -454,7 +499,7 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
      * @param string   $name
      * @param int|null $idx
      *
-     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface
+     * @return SimpleXmlDomInterface|SimpleXmlDomInterface[]|SimpleXmlDomNodeInterface<SimpleXmlDomInterface>
      */
     public function getElementsByTagName(string $name, $idx = null)
     {
@@ -559,6 +604,28 @@ class SimpleXmlDom extends AbstractSimpleXmlDom implements \IteratorAggregate, S
 
         if ($node === null) {
             return null;
+        }
+
+        return new static($node);
+    }
+
+    /**
+     * Returns the next sibling of node.
+     *
+     * @return SimpleXmlDomInterface|null
+     */
+    public function nextNonWhitespaceSibling()
+    {
+        /** @var \DOMNode|null $node */
+        $node = $this->node->nextSibling;
+
+        if ($node === null) {
+            return null;
+        }
+
+        while ($node && !\trim($node->textContent)) {
+            /** @var \DOMNode|null $node */
+            $node = $node->nextSibling;
         }
 
         return new static($node);

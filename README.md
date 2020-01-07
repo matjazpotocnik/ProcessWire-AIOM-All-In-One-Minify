@@ -185,6 +185,11 @@ If you are currently in development of the site, caching can be a problem. For t
 
 ## Changelog ##
 
+3.2.9
+
+- Fixed less.php compatibility in PHP 7.4
+- Update html-min, simple_html_dom and css-selector
+
 3.2.8
 
 - Fixed minify process when css/js files in html source has query strings

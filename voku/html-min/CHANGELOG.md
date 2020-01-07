@@ -1,3 +1,41 @@
+# Changelog 4.0.7
+
+- fix: too many single white spaces are removed
+
+
+# Changelog 4.0.6
+
+- fix: fix regex for self-closing tags
+- optimize performance via "strpos" before regex
+
+
+# Changelog 4.0.5
+
+- fix: protect "nocompress"-tags before notifying the Observer
+
+
+# Changelog 4.0.4
+
+- fix: removing of dom elements
+
+
+# Changelog 4.0.3
+
+- fix: removing of "\</p>"-tags
+
+
+# Changelog 4.0.2
+
+- use new version of "voku/simple_html_dom"
+
+
+# Changelog 4.0.1
+
+- optimize unicode support
+- fix: remove unnecessary \</source> closing tag #40
+- fix: bad minify text/x-custom-template #38
+
+
 # Changelog 4.0.0
 
 - use interfaces in the "HtmlMinDom"-Observer
@@ -11,7 +49,7 @@
 
 # Changelog 3.1.8
 
-- fix / optimize: "doRemoveOmittedQuotes" -> support for "<html ⚡>" via SimpleHtmlDom
+- fix / optimize: "doRemoveOmittedQuotes" -> support for "\<html ⚡>" via SimpleHtmlDom
 
 
 # Changelog 3.1.7
@@ -21,7 +59,7 @@
 
 # Changelog 3.1.6
 
-- fix: keep HTML closing tags in <script> tags 
+- fix: keep HTML closing tags in \<script> tags 
 
 
 # Changelog 3.1.5
@@ -49,7 +87,7 @@
 
 # Changelog 3.0.6 (2018-12-01)
 
-- implement the "<nocompress>"-tag + tests
+- implement the "\<nocompress>"-tag + tests
 
 
 # Changelog 3.0.5 (2018-10-17)
@@ -111,4 +149,4 @@
 - drop support for PHP < 7.0
 - use "strict_types"
 - doRemoveOmittedQuotes() -> remove quotes e.g. class="lall" => class=lall
-- doRemoveOmittedHtmlTags() -> remove ommitted html tags e.g. <p>lall</p> => <p>lall 
+- doRemoveOmittedHtmlTags() -> remove ommitted html tags e.g. \<p>lall\</p> => \<p>lall 

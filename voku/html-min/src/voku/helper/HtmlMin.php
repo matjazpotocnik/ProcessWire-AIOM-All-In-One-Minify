@@ -18,12 +18,12 @@ namespace voku\helper;
  * Ideas:
  * - http://perfectionkills.com/optimizing-html/
  */
-class HtmlMin
+class HtmlMin implements HtmlMinInterface
 {
     /**
      * @var string
      */
-    private static $regExSpace = "/[[:space:]]{2,}|[\r\n]+/u";
+    private static $regExSpace = "/[[:space:]]{2,}|[\r\n]/u";
 
     /**
      * @var array
@@ -244,9 +244,14 @@ class HtmlMin
     private $withDocType = false;
 
     /**
-     * @var \SplObjectStorage|HtmlMinDomObserverInterface[]
+     * @var HtmlMinDomObserverInterface[]|\SplObjectStorage
      */
     private $domLoopObservers;
+
+    /**
+     * @var int
+     */
+    private $protected_tags_counter = 0;
 
     /**
      * HtmlMin constructor.
@@ -266,25 +271,6 @@ class HtmlMin
     public function attachObserverToTheDomLoop(HtmlMinDomObserverInterface $observer)
     {
         $this->domLoopObservers->attach($observer);
-    }
-
-    /**
-     * @param $domElement SimpleHtmlDom
-     *
-     * @return void
-     */
-    private function notifyObserversAboutDomElementBeforeMinification(SimpleHtmlDom $domElement)
-    {
-        foreach ($this->domLoopObservers as $observer) {
-            $observer->domElementBeforeMinification($domElement, $this);
-        }
-    }
-
-    private function notifyObserversAboutDomElementAfterMinification(SimpleHtmlDom $domElement)
-    {
-        foreach ($this->domLoopObservers as $observer) {
-            $observer->domElementAfterMinification($domElement, $this);
-        }
     }
 
     /**
@@ -408,158 +394,6 @@ class HtmlMin
     }
 
     /**
-     * @return bool
-     */
-    public function isDoSortCssClassNames(): bool
-    {
-        return $this->doSortCssClassNames;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoSortHtmlAttributes(): bool
-    {
-        return $this->doSortHtmlAttributes;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveDeprecatedScriptCharsetAttribute(): bool
-    {
-        return $this->doRemoveDeprecatedScriptCharsetAttribute;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveDefaultAttributes(): bool
-    {
-        return $this->doRemoveDefaultAttributes;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveDeprecatedAnchorName(): bool
-    {
-        return $this->doRemoveDeprecatedAnchorName;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveDeprecatedTypeFromStylesheetLink(): bool
-    {
-        return $this->doRemoveDeprecatedTypeFromStylesheetLink;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveDeprecatedTypeFromScriptTag(): bool
-    {
-        return $this->doRemoveDeprecatedTypeFromScriptTag;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveValueFromEmptyInput(): bool
-    {
-        return $this->doRemoveValueFromEmptyInput;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveEmptyAttributes(): bool
-    {
-        return $this->doRemoveEmptyAttributes;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoSumUpWhitespace(): bool
-    {
-        return $this->doSumUpWhitespace;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveSpacesBetweenTags(): bool
-    {
-        return $this->doRemoveSpacesBetweenTags;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoOptimizeViaHtmlDomParser(): bool
-    {
-        return $this->doOptimizeViaHtmlDomParser;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoOptimizeAttributes(): bool
-    {
-        return $this->doOptimizeAttributes;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveComments(): bool
-    {
-        return $this->doRemoveComments;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveWhitespaceAroundTags(): bool
-    {
-        return $this->doRemoveWhitespaceAroundTags;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveOmittedQuotes(): bool
-    {
-        return $this->doRemoveOmittedQuotes;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveOmittedHtmlTags(): bool
-    {
-        return $this->doRemoveOmittedHtmlTags;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDoRemoveHttpPrefixFromAttributes(): bool
-    {
-        return $this->doRemoveHttpPrefixFromAttributes;
-    }
-
-    /**
-     * @return array
-     */
-    public function getDomainsToRemoveHttpPrefixFromAttributes(): array
-    {
-        return $this->domainsToRemoveHttpPrefixFromAttributes;
-    }
-
-    /**
      * @param bool $doRemoveOmittedHtmlTags
      *
      * @return $this
@@ -680,7 +514,20 @@ class HtmlMin
                                &&
                                $attribute->value !== ''
                                &&
-                               \preg_match('/["\'=<>` \t\r\n\f]+/', $attribute->value) === 0;
+                               \strpos($attribute->name, '____SIMPLE_HTML_DOM__VOKU') !== 0
+                               &&
+                               \strpos($attribute->name, ' ') === false
+                               &&
+                               \preg_match('/["\'=<>` \t\r\n\f]/', $attribute->value) === 0;
+
+                $quoteTmp = '"';
+                if (
+                    !$omit_quotes
+                    &&
+                    \strpos($attribute->value, '"') !== false
+                ) {
+                    $quoteTmp = "'";
+                }
 
                 if (
                     $this->doOptimizeAttributes
@@ -696,7 +543,7 @@ class HtmlMin
                     $attr_val = $attribute->value;
                 }
 
-                $attr_str .= ($omit_quotes ? '' : '"') . $attr_val . ($omit_quotes ? '' : '"');
+                $attr_str .= ($omit_quotes ? '' : $quoteTmp) . $attr_val . ($omit_quotes ? '' : $quoteTmp);
                 $attr_str .= ' ';
             }
         }
@@ -712,6 +559,16 @@ class HtmlMin
     private function domNodeClosingTagOptional(\DOMNode $node): bool
     {
         $tag_name = $node->nodeName;
+
+        /** @var \DOMNode|null $parent_node - false-positive error from phpstan */
+        $parent_node = $node->parentNode;
+
+        if ($parent_node) {
+            $parent_tag_name = $parent_node->nodeName;
+        } else {
+            $parent_tag_name = null;
+        }
+
         $nextSibling = $this->getNextSiblingOfTypeDOMElement($node);
 
         // https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-omission
@@ -728,7 +585,11 @@ class HtmlMin
         // A <dd> element's end tag may be omitted if the dd element is immediately followed by another dd element or a dt element, or if there is no more content in the parent element.
         // An <rp> element's end tag may be omitted if the rp element is immediately followed by an rt or rp element, or if there is no more content in the parent element.
 
-        // TODO:
+        /**
+         * @noinspection TodoComment
+         *
+         * TODO: Not Implemented
+         */
         //
         // <html> may be omitted if first thing inside is not comment
         // <head> may be omitted if first thing inside is an element
@@ -763,9 +624,7 @@ class HtmlMin
                )
                ||
                (
-                   (
-                       $tag_name === 'rp'
-                   )
+                   $tag_name === 'rp'
                    &&
                    (
                        $nextSibling === null
@@ -792,6 +651,30 @@ class HtmlMin
                            $nextSibling instanceof \DOMElement
                            &&
                            $nextSibling->tagName === 'tr'
+                       )
+                   )
+               )
+               ||
+               (
+                   $tag_name === 'source'
+                   &&
+                   (
+                       $parent_tag_name === 'audio'
+                       ||
+                       $parent_tag_name === 'video'
+                       ||
+                       $parent_tag_name === 'picture'
+                       ||
+                       $parent_tag_name === 'source'
+                   )
+                   &&
+                   (
+                       $nextSibling === null
+                       ||
+                       (
+                           $nextSibling instanceof \DOMElement
+                           &&
+                           $nextSibling->tagName === 'source'
                        )
                    )
                )
@@ -975,6 +858,7 @@ class HtmlMin
                 }
 
                 if (!$this->doRemoveWhitespaceAroundTags) {
+                    /** @noinspection NestedPositiveIfStatementsInspection */
                     if (
                         $child->nextSibling instanceof \DOMText
                         &&
@@ -985,7 +869,15 @@ class HtmlMin
                             &&
                             \substr($html, -1) !== ' '
                         ) {
-                            $html .= ' ';
+                            $html = \rtrim($html);
+
+                            if (
+                                $child->parentNode
+                                &&
+                                $child->parentNode->nodeName !== 'head'
+                            ) {
+                                $html .= ' ';
+                            }
                         }
                         $emptyStringTmp = 'is_empty';
                     }
@@ -998,11 +890,27 @@ class HtmlMin
                         $child->nextSibling !== null
                     ) {
                         if (
-                            $emptyStringTmp !== 'last_was_empty'
-                            &&
-                            \substr($html, -1) !== ' '
+                            (
+                                $child->wholeText
+                                &&
+                                strpos($child->wholeText, ' ') !== false
+                            )
+                            ||
+                            (
+                                $emptyStringTmp !== 'last_was_empty'
+                                &&
+                                \substr($html, -1) !== ' '
+                            )
                         ) {
-                            $html .= ' ';
+                            $html = \rtrim($html);
+
+                            if (
+                                $child->parentNode
+                                &&
+                                $child->parentNode->nodeName !== 'head'
+                            ) {
+                                $html .= ' ';
+                            }
                         }
                         $emptyStringTmp = 'is_empty';
                     }
@@ -1018,51 +926,164 @@ class HtmlMin
     }
 
     /**
-     * @param \DOMNode $node
-     *
-     * @return \DOMNode|null
+     * @return array
      */
-    protected function getNextSiblingOfTypeDOMElement(\DOMNode $node)
+    public function getDomainsToRemoveHttpPrefixFromAttributes(): array
     {
-        do {
-            $node = $node->nextSibling;
-        } while (!($node === null || $node instanceof \DOMElement));
-
-        return $node;
+        return $this->domainsToRemoveHttpPrefixFromAttributes;
     }
 
     /**
-     * Check if the current string is an conditional comment.
-     *
-     * INFO: since IE >= 10 conditional comment are not working anymore
-     *
-     * <!--[if expression]> HTML <![endif]-->
-     * <![if expression]> HTML <![endif]>
-     *
-     * @param string $comment
-     *
      * @return bool
      */
-    private function isConditionalComment($comment): bool
+    public function isDoOptimizeAttributes(): bool
     {
-        if (\preg_match('/^\[if [^\]]+\]/', $comment)) {
-            return true;
-        }
+        return $this->doOptimizeAttributes;
+    }
 
-        if (\preg_match('/\[endif\]$/', $comment)) {
-            return true;
-        }
+    /**
+     * @return bool
+     */
+    public function isDoOptimizeViaHtmlDomParser(): bool
+    {
+        return $this->doOptimizeViaHtmlDomParser;
+    }
 
-        return false;
+    /**
+     * @return bool
+     */
+    public function isDoRemoveComments(): bool
+    {
+        return $this->doRemoveComments;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveDefaultAttributes(): bool
+    {
+        return $this->doRemoveDefaultAttributes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveDeprecatedAnchorName(): bool
+    {
+        return $this->doRemoveDeprecatedAnchorName;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveDeprecatedScriptCharsetAttribute(): bool
+    {
+        return $this->doRemoveDeprecatedScriptCharsetAttribute;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveDeprecatedTypeFromScriptTag(): bool
+    {
+        return $this->doRemoveDeprecatedTypeFromScriptTag;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveDeprecatedTypeFromStylesheetLink(): bool
+    {
+        return $this->doRemoveDeprecatedTypeFromStylesheetLink;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveEmptyAttributes(): bool
+    {
+        return $this->doRemoveEmptyAttributes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveHttpPrefixFromAttributes(): bool
+    {
+        return $this->doRemoveHttpPrefixFromAttributes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveOmittedHtmlTags(): bool
+    {
+        return $this->doRemoveOmittedHtmlTags;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveOmittedQuotes(): bool
+    {
+        return $this->doRemoveOmittedQuotes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveSpacesBetweenTags(): bool
+    {
+        return $this->doRemoveSpacesBetweenTags;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveValueFromEmptyInput(): bool
+    {
+        return $this->doRemoveValueFromEmptyInput;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoRemoveWhitespaceAroundTags(): bool
+    {
+        return $this->doRemoveWhitespaceAroundTags;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoSortCssClassNames(): bool
+    {
+        return $this->doSortCssClassNames;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoSortHtmlAttributes(): bool
+    {
+        return $this->doSortHtmlAttributes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDoSumUpWhitespace(): bool
+    {
+        return $this->doSumUpWhitespace;
     }
 
     /**
      * @param string $html
-     * @param bool   $decodeUtf8Specials <p>Use this only in special cases, e.g. for PHP 5.3</p>
+     * @param bool   $multiDecodeNewHtmlEntity
      *
      * @return string
      */
-    public function minify($html, $decodeUtf8Specials = false): string
+    public function minify($html, $multiDecodeNewHtmlEntity = false): string
     {
         $html = (string) $html;
         if (!isset($html[0])) {
@@ -1072,12 +1093,6 @@ class HtmlMin
         $html = \trim($html);
         if (!$html) {
             return '';
-        }
-
-        // init
-        static $CACHE_SELF_CLOSING_TAGS = null;
-        if ($CACHE_SELF_CLOSING_TAGS === null) {
-            $CACHE_SELF_CLOSING_TAGS = \implode('|', self::$selfClosingTags);
         }
 
         // reset
@@ -1092,7 +1107,7 @@ class HtmlMin
         // -------------------------------------------------------------------------
 
         if ($this->doOptimizeViaHtmlDomParser) {
-            $html = $this->minifyHtmlDom($html, $decodeUtf8Specials);
+            $html = $this->minifyHtmlDom($html, $multiDecodeNewHtmlEntity);
         }
 
         // -------------------------------------------------------------------------
@@ -1100,28 +1115,35 @@ class HtmlMin
         // -------------------------------------------------------------------------
 
         // Remove extra white-space(s) between HTML attribute(s)
-        $html = (string) \preg_replace_callback(
-            '#<([^/\s<>!]+)(?:\s+([^<>]*?)\s*|\s*)(/?)>#',
-            function ($matches) {
-                return '<' . $matches[1] . (string) \preg_replace('#([^\s=]+)(\=([\'"]?)(.*?)\3)?(\s+|$)#s', ' $1$2', $matches[2]) . $matches[3] . '>';
-            },
-            $html
-        );
+        if (\strpos($html, ' ') !== false) {
+            $html = (string) \preg_replace_callback(
+                '#<([^/\s<>!]+)(?:\s+([^<>]*?)\s*|\s*)(/?)>#',
+                static function ($matches) {
+                    return '<' . $matches[1] . \preg_replace('#([^\s=]+)(=([\'"]?)(.*?)\3)?(\s+|$)#su', ' $1$2', $matches[2]) . $matches[3] . '>';
+                },
+                $html
+            );
+        }
 
         if ($this->doRemoveSpacesBetweenTags) {
-            // Remove spaces that are between > and <
-            $html = (string) \preg_replace('/(>) (<)/', '>$2', $html);
+            /** @noinspection NestedPositiveIfStatementsInspection */
+            if (\strpos($html, ' ') !== false) {
+                // Remove spaces that are between > and <
+                $html = (string) \preg_replace('#(>)\s(<)#', '>$2', $html);
+            }
         }
 
         // -------------------------------------------------------------------------
         // Restore protected HTML-code.
         // -------------------------------------------------------------------------
 
-        $html = (string) \preg_replace_callback(
-            '/<(?<element>' . $this->protectedChildNodesHelper . ')(?<attributes> [^>]*)?>(?<value>.*?)<\/' . $this->protectedChildNodesHelper . '>/',
-            [$this, 'restoreProtectedHtml'],
-            $html
-        );
+        if (\strpos($html, $this->protectedChildNodesHelper) !== false) {
+            $html = (string) \preg_replace_callback(
+                '/<(?<element>' . $this->protectedChildNodesHelper . ')(?<attributes> [^>]*)?>(?<value>.*?)<\/' . $this->protectedChildNodesHelper . '>/',
+                [$this, 'restoreProtectedHtml'],
+                $html
+            );
+        }
 
         // -------------------------------------------------------------------------
         // Restore protected HTML-entities.
@@ -1167,14 +1189,14 @@ class HtmlMin
             $replacement[] = '<' . $selfClosingTag . '>';
             $replace[] = '<' . $selfClosingTag . ' />';
             $replacement[] = '<' . $selfClosingTag . '>';
+            $replace[] = '></' . $selfClosingTag . '>';
+            $replacement[] = '>';
         }
         $html = \str_replace(
             $replace,
             $replacement,
             $html
         );
-
-        $html = (string) \preg_replace('#<\b(' . $CACHE_SELF_CLOSING_TAGS . ')([^>]*+)><\/\b\1>#', '<\\1\\2>', $html);
 
         // ------------------------------------
         // check if compression worked
@@ -1188,12 +1210,58 @@ class HtmlMin
     }
 
     /**
-     * @param $html
-     * @param $decodeUtf8Specials
+     * @param \DOMNode $node
+     *
+     * @return \DOMNode|null
+     */
+    protected function getNextSiblingOfTypeDOMElement(\DOMNode $node)
+    {
+        do {
+            /** @var \DOMNode|null $node - false-positive error from phpstan */
+            $node = $node->nextSibling;
+        } while (!($node === null || $node instanceof \DOMElement));
+
+        return $node;
+    }
+
+    /**
+     * Check if the current string is an conditional comment.
+     *
+     * INFO: since IE >= 10 conditional comment are not working anymore
+     *
+     * <!--[if expression]> HTML <![endif]-->
+     * <![if expression]> HTML <![endif]>
+     *
+     * @param string $comment
+     *
+     * @return bool
+     */
+    private function isConditionalComment($comment): bool
+    {
+        if (\strpos($comment, '[if ') !== false) {
+            /** @noinspection RegExpRedundantEscape */
+            if (\preg_match('/^\[if [^\]]+\]/', $comment)) {
+                return true;
+            }
+        }
+
+        if (\strpos($comment, '[endif]') !== false) {
+            /** @noinspection RegExpRedundantEscape */
+            if (\preg_match('/\[endif\]$/', $comment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $html
+     * @param bool   $multiDecodeNewHtmlEntity
      *
      * @return string
      */
-    private function minifyHtmlDom($html, $decodeUtf8Specials): string
+    private function minifyHtmlDom($html, $multiDecodeNewHtmlEntity): string
     {
         // init dom
         $dom = new HtmlDomParser();
@@ -1208,6 +1276,16 @@ class HtmlMin
         $dom->loadHtml($html);
 
         $this->withDocType = (\stripos(\ltrim($html), '<!DOCTYPE') === 0);
+
+        // -------------------------------------------------------------------------
+        // Protect <nocompress> HTML tags first.
+        // -------------------------------------------------------------------------
+
+        $dom = $this->protectTagHelper($dom, 'nocompress');
+
+        // -------------------------------------------------------------------------
+        // Notify the Observer before the minification.
+        // -------------------------------------------------------------------------
 
         foreach ($dom->find('*') as $element) {
             $this->notifyObserversAboutDomElementBeforeMinification($element);
@@ -1245,6 +1323,10 @@ class HtmlMin
                 $this->removeWhitespaceAroundTags($element);
             }
 
+            // -------------------------------------------------------------------------
+            // Notify the Observer after the minification.
+            // -------------------------------------------------------------------------
+
             $this->notifyObserversAboutDomElementAfterMinification($element);
         }
 
@@ -1254,8 +1336,54 @@ class HtmlMin
 
         return $dom->fixHtmlOutput(
             $this->domNodeToString($dom->getDocument()),
-            $decodeUtf8Specials
+            $multiDecodeNewHtmlEntity
         );
+    }
+
+    /**
+     * @param SimpleHtmlDomInterface $domElement
+     *
+     * @return void
+     */
+    private function notifyObserversAboutDomElementAfterMinification(SimpleHtmlDomInterface $domElement)
+    {
+        foreach ($this->domLoopObservers as $observer) {
+            $observer->domElementAfterMinification($domElement, $this);
+        }
+    }
+
+    /**
+     * @param SimpleHtmlDomInterface $domElement
+     *
+     * @return void
+     */
+    private function notifyObserversAboutDomElementBeforeMinification(SimpleHtmlDomInterface $domElement)
+    {
+        foreach ($this->domLoopObservers as $observer) {
+            $observer->domElementBeforeMinification($domElement, $this);
+        }
+    }
+
+    /**
+     * @param HtmlDomParser $dom
+     * @param string        $selector
+     *
+     * @return HtmlDomParser
+     */
+    private function protectTagHelper(HtmlDomParser $dom, string $selector): HtmlDomParser
+    {
+        foreach ($dom->find($selector) as $element) {
+            if ($element->isRemoved()) {
+                continue;
+            }
+
+            $this->protectedChildNodes[$this->protected_tags_counter] = $element->parentNode()->innerHtml();
+            $element->getNode()->parentNode->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $this->protected_tags_counter . '"></' . $this->protectedChildNodesHelper . '>';
+
+            ++$this->protected_tags_counter;
+        }
+
+        return $dom;
     }
 
     /**
@@ -1267,37 +1395,32 @@ class HtmlMin
      */
     private function protectTags(HtmlDomParser $dom): HtmlDomParser
     {
-        // init
-        $counter = 0;
+        $this->protectTagHelper($dom, 'code');
 
         foreach ($dom->find('script, style') as $element) {
+            if ($element->isRemoved()) {
+                continue;
+            }
 
-            // skip external links
             if ($element->tag === 'script' || $element->tag === 'style') {
                 $attributes = $element->getAllAttributes();
+                // skip external links
                 if (isset($attributes['src'])) {
                     continue;
                 }
             }
 
-            $this->protectedChildNodes[$counter] = $element->text();
-            $element->getNode()->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $counter . '"></' . $this->protectedChildNodesHelper . '>';
+            $this->protectedChildNodes[$this->protected_tags_counter] = $element->innerhtml;
+            $element->getNode()->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $this->protected_tags_counter . '"></' . $this->protectedChildNodesHelper . '>';
 
-            ++$counter;
+            ++$this->protected_tags_counter;
         }
 
-        foreach ($dom->find('code, nocompress') as $element) {
+        foreach ($dom->find('//comment()') as $element) {
             if ($element->isRemoved()) {
                 continue;
             }
 
-            $this->protectedChildNodes[$counter] = $element->parentNode()->innerHtml();
-            $element->getNode()->parentNode->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $counter . '"></' . $this->protectedChildNodesHelper . '>';
-
-            ++$counter;
-        }
-
-        foreach ($dom->find('//comment()') as $element) {
             $text = $element->text();
 
             // skip normal comments
@@ -1305,15 +1428,15 @@ class HtmlMin
                 continue;
             }
 
-            $this->protectedChildNodes[$counter] = '<!--' . $text . '-->';
+            $this->protectedChildNodes[$this->protected_tags_counter] = '<!--' . $text . '-->';
 
             /* @var $node \DOMComment */
             $node = $element->getNode();
-            $child = new \DOMText('<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $counter . '"></' . $this->protectedChildNodesHelper . '>');
+            $child = new \DOMText('<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $this->protected_tags_counter . '"></' . $this->protectedChildNodesHelper . '>');
             /** @noinspection UnusedFunctionResultInspection */
             $element->getNode()->parentNode->replaceChild($child, $node);
 
-            ++$counter;
+            ++$this->protected_tags_counter;
         }
 
         return $dom;
@@ -1345,11 +1468,11 @@ class HtmlMin
     /**
      * Trim tags in the dom.
      *
-     * @param SimpleHtmlDom $element
+     * @param SimpleHtmlDomInterface $element
      *
      * @return void
      */
-    private function removeWhitespaceAroundTags(SimpleHtmlDom $element)
+    private function removeWhitespaceAroundTags(SimpleHtmlDomInterface $element)
     {
         if (isset(self::$trimWhitespaceFromTags[$element->tag])) {
             $node = $element->getNode();
@@ -1363,13 +1486,17 @@ class HtmlMin
                 $candidates[] = $node->nextSibling;
             }
 
+            /** @var mixed $candidate - false-positive error from phpstan */
             foreach ($candidates as &$candidate) {
                 if ($candidate === null) {
                     continue;
                 }
 
                 if ($candidate->nodeType === \XML_TEXT_NODE) {
-                    $candidate->nodeValue = \preg_replace(self::$regExSpace, ' ', $candidate->nodeValue);
+                    $nodeValueTmp = \preg_replace(self::$regExSpace, ' ', $candidate->nodeValue);
+                    if ($nodeValueTmp !== null) {
+                        $candidate->nodeValue = $nodeValueTmp;
+                    }
                 }
             }
         }
@@ -1386,12 +1513,7 @@ class HtmlMin
     {
         \preg_match('/.*"(?<id>\d*)"/', $matches['attributes'], $matchesInner);
 
-        $html = '';
-        if (isset($this->protectedChildNodes[$matchesInner['id']])) {
-            $html .= $this->protectedChildNodes[$matchesInner['id']];
-        }
-
-        return $html;
+        return $this->protectedChildNodes[$matchesInner['id']] ?? '';
     }
 
     /**
@@ -1420,6 +1542,9 @@ class HtmlMin
             /* @var $text_node \DOMNode */
             $text_node = $text_node_wrapper->getNode();
             $xp = $text_node->getNodePath();
+            if ($xp === null) {
+                continue;
+            }
 
             $doSkip = false;
             foreach (self::$skipTagsForRemoveWhitespace as $pattern) {
@@ -1433,7 +1558,10 @@ class HtmlMin
                 continue;
             }
 
-            $text_node->nodeValue = \preg_replace(self::$regExSpace, ' ', $text_node->nodeValue);
+            $nodeValueTmp = \preg_replace(self::$regExSpace, ' ', $text_node->nodeValue);
+            if ($nodeValueTmp !== null) {
+                $text_node->nodeValue = $nodeValueTmp;
+            }
         }
 
         $dom->getDocument()->normalizeDocument();

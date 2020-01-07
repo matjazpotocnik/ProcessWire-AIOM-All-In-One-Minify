@@ -81,7 +81,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // ------------------------------------------------------------------------
             // Version: major, minor, revision, i.e. 110 = 1.1.0
             // ------------------------------------------------------------------------
-            'version' => 328,
+            'version' => 329,
 
             'author' => 'David Karich & Conclurer GbR, kixe, Philzen, TomS, gingebaker, janKir, gr4y, matjazpotocnik',
 
@@ -108,7 +108,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             // Note that autoload modules are almost always also 'singular' (seen above).
             // ------------------------------------------------------------------------
             'autoload' => true,
-            'requires'  => 'PHP>=7.1.3', // \voku\helper\HtmlMin()
+            'requires'  => 'PHP>=7.2.5', // \Symphony\css-selector
         );
     }
 
