@@ -1,10 +1,21 @@
-<h3>Minimize Stylesheets or parse LESS (in your Template)</h3>
+<h3>Caching</h3>
+	<p><ol>
+		<li>Setup template caching.</li>
+		<li>Edit index.php and include AIOMcache.php.</li>
+		<li>Enable AIOM+ caching under the Caching tab. See README.md.</li>
+	</ol>
+	</p>
+<h3>Minimize HTML source code</h3>
+<p>
+	Enable HTML Minify option under the Minimizing tab.
+</p>
+<h3>Minimize Stylesheets or parse LESS in your template</h3>
 <p>
     Minimization of a single file.
 </p>
 <p style="border: 1px solid #ccc; padding: 10px;">
     <code style="display: block; white-space: nowrap; overflow:auto;">
-        &lt;link rel=&quot;stylesheet&quot; href=&quot;&lt;?php echo AIOM::CSS('css/stylesheet.css'); ?&gt;&quot;&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;&lt;?= \AIOM::CSS('css/stylesheet.css'); ?&gt;&quot;&gt;
     </code>
 </p>
 <p>
@@ -12,16 +23,20 @@
 </p>
 <p style="border: 1px solid #ccc; padding: 10px;">
     <code style="display: block; white-space: nowrap; overflow:auto;">
-        &lt;link rel=&quot;stylesheet&quot; href=&quot;&lt;?php echo AIOM::CSS(array('css/file-1.css', 'css/file-2.less', 'css/file-3.css', 'css/file-4.less')); ?&gt;&quot;&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;&lt;?= \AIOM::CSS(array('css/file-1.css', 'css/file-2.less', 'css/file-3.css')); ?&gt;&quot;&gt;
     </code>
 </p>
-<h3>Minimize Javascripts (in your Template)</h3>
+<h3>Minimize Stylesheets automatically</h3>
+<p>
+	Enable CSS Minify option under the Minimizing tab.
+</p>
+<h3>Minimize Javascripts in your template</h3>
 <p>
     Minimization of a single file.
 </p>
 <p style="border: 1px solid #ccc; padding: 10px;">
     <code style="display: block; white-space: nowrap; overflow:auto;">
-        &lt;script src=&quot;&lt;?php echo AIOM::JS('js/javascript.js'); ?&gt;&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;&lt;?= \AIOM::JS('js/javascript.js'); ?&gt;&quot;&gt;&lt;/script&gt;
     </code>
 </p>
 <p>
@@ -29,6 +44,28 @@
 </p>
 <p style="border: 1px solid #ccc; padding: 10px;">
     <code style="display: block; white-space: nowrap; overflow:auto;">
-        &lt;script src=&quot;&lt;?php echo AIOM::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?&gt;&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;&lt;?= \AIOM::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js')); ?&gt;&quot;&gt;&lt;/script&gt;
+    </code>
+</p>
+<h3>Minimize Javascripts automatically</h3>
+<p>
+	Enable JS Minify option under the Minimizing tab.
+</p>
+<h3>.htaccess change for domain sharding</h3>
+<p>
+    To prevent duplicate content, you need to make a change in the .htaccess file of your ProcessWire installation. Add the following at the end of the .htaccess file in the ProcessWire Webroot and change "static.mysite.com" to your subdomain and "http://www.mysite.com" to your main domain. Please take care, the %-sign at the end of the domain is required!
+</p>
+<p style="border: 1px solid #ccc; padding: 10px;">
+    <code style="display: block; white-space: nowrap; overflow:auto;">
+        # ----------------------------------------------<br>
+        # Domain sharding option<br>
+        # ----------------------------------------------<br>
+        &lt;IfModule mod_rewrite.c&gt;<br>
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;RewriteCond %{HTTP_HOST} ^static.mysite.com [NC]<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;RewriteCond %{REQUEST_URI} !^.*\.(cur|gif|ico|jpe?g|png|svgz?|webp|eot|otf|ttc|ttf|woff|woff2|css|js)$<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;RewriteRule ^(.*)$ http://www.mysite.com%{REQUEST_URI} [L,QSA]<br>
+        <br>
+        &lt;/IfModule&gt;
     </code>
 </p>

@@ -1,0 +1,16 @@
+/*
+.AdminThemeUikit .AIOM #wrap_uninstall {
+	margin-top: 20px;
+}
+.AdminThemeUikit #AIOMtabs {
+	margin-top: -22px;
+}
+*/
+.AdminThemeUikit #wrapAIOMtabs > .InputfieldContent {
+	padding: 15px 0 0 15px;
+}
+.AdminThemeDefault #wrapAIOMtabs > .InputfieldContent {
+	padding-top: 54px;
+	margin-top: 0;
+	margin-bottom: -16px;
+}
