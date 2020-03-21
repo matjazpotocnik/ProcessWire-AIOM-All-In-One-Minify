@@ -1,5 +1,8 @@
 ## Changelog ##
 
+4.0.1
+- Bug fixes (Matjaž Potočnik)
+
 4.0.0
 
 - Added AIOM+ template caching (Matjaž Potočnik)
