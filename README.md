@@ -68,8 +68,8 @@ executes its PHP template-file at certain intervals (cache time), and delivers c
 rest of the time. Templates caching can help with page render time on resource-heavy pages by
 serving pages from disk cache rather than creating pages on every request. But caching is not that
 efficient on simple, resource-light pages. AIOM+ use cached pages but delivers them more
-efficiently. For this to work, you have to set up template caching in admin and also edit
-`/index.php` file on your webroot and include file AIOMcache.php. I know that modifying core
+efficiently. For this to work, you have to enable template caching AND also edit
+`/index.php` file on your webroot to include file `AIOMcache.php`. I know that modifying core
 ProcessWire files is not a good idea, but I don't see other options. index.php file is very rarely
 changed during ProcessWire upgrade so I think it's not a big deal. Edit `index.php` located on your
 webroot folder with a text editor and add this line *before* any ProcessWire statements:

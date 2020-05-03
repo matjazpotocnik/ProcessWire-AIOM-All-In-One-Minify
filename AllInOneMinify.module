@@ -57,7 +57,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return array(
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.1',
+			'version' => '4.0.2',
 			'author' => 'David Karich & Conclurer GbR, kixe, matjazpotocnik, Philzen, TomS, gingebaker, janKir, gr4y and others',
 			'summary' => __('AIOM+ (All In One Minify) is a module to easily improve the performance of your website. By a simple function call Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding).'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
@@ -161,6 +161,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	private function _sanitize_data($data) {
+		if(empty($data)) return self::$configDataDefault;
+			
 		$_data = $data;
 		$data['max_cache_lifetime'] = $this->_sanitizeNumericCacheTime($data['max_cache_lifetime']);
 
@@ -188,6 +190,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return InputfieldWrapper
 	 */
 	public function getModuleConfigInputfields($data) {
+		if(empty($data)) $data = self::$configDataDefault;
 
 		$useTabs = true;
 
@@ -1186,7 +1189,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		//delete pages cache too?
 		$numRemoved = $numRemoved + self::_clearPagesCache();
-		wire()->message(sprintf(__("Deleted %s cache files."), $numRemoved));
+		wire()->message(sprintf(__("Deleted %s cache files in total."), $numRemoved));
 
 		// Redirect to module configuration.
 		wire('session')->redirect(wire('page')->httpUrl.'edit?name=' . wire('input')->get('name') . '&collapse_info=1');
