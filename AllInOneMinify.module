@@ -162,7 +162,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 	private function _sanitize_data($data) {
 		if(empty($data)) return self::$configDataDefault;
-			
+
 		$_data = $data;
 		$data['max_cache_lifetime'] = $this->_sanitizeNumericCacheTime($data['max_cache_lifetime']);
 
@@ -204,8 +204,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$modules = $this->wire('modules');
 		$templates = $this->wire('templates');
 		$config = $this->wire('config');
-
+		
 		if($useTabs) {
+			// since 3.0.170 children inside InputfieldWrapper don't get style="width: xx%"
+			// so if tabs are used, the workaround is to use ukGrid layout that use uk-width-* classes
+			$adminTheme = $config->wire('adminTheme');
+			$adminTheme->ukGrid = true; 
 			$wiretabs = $modules->get('JqueryWireTabs');
 			$wrapper1 = new InputfieldWrapper(); //return value
 
@@ -265,7 +269,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->columnWidth = 34;
 		$field->description = __('This option lets you specify files that are checked against template cache files. ') .
 													__('When these files are newer than files in the cache, cache files are cleared.');
-		$field->notes = __('Enter each file on its own line. Files are relative to /files/templates/ folder. Template files (alternate/prepend/append) specify as {template_files} and {config_template_files}.');
+		$field->notes = __('Enter each file on its own line. Files are relative to /site/templates/ folder. Alternate/prepend/append template files specify as {template_files} and {config_template_files}.');
 		$field->value = $data['template_files'];
 		//$field->collapsed = Inputfield::collapsedBlank;
 		$fieldset->add($field);
