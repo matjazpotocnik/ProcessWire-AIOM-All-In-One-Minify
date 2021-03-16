@@ -1,5 +1,10 @@
 ## Changelog ##
 
+4.0.3
+- Skip external assets in auto minimize mode without throwing an error (Matjaž Potočnik)
+- Bug fix (Matjaž Potočnik)
+- Updated readme, changelog (Matjaž Potočnik)
+
 4.0.2
 - Bug fixes on install (Matjaž Potočnik)
 

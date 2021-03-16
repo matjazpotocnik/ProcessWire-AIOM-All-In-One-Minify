@@ -2,16 +2,15 @@
 
 /**
  * @author  FlipZoom Media Inc. - David Karich & Conclurer GbR
- * @author  kixe - Christoph Thelen, qualyweb.com
  * @author  matjazp - Matjaz Potocnik, UM FERI
- * @contact David Karich <david.karich@flipzoom.de>, Conclurer GbR <aiom@conclurer.com>
- * @website www.flipzoom.de, www.conclurer.com
+ * @author  kixe - Christoph Thelen, qualyweb.com
  * @create  2013-11-26
  * @style   Tab size: 2 / Soft tabs: NO
  * ----------------------------------------------------------------------------------
  * @licence
  * Copyright (c) 2013 FlipZoom Media Inc. - David Karich
  * Copyright (c) 2014 Conclurer GbR
+ * Copyright (c) 2021 Matjaz Potocnik
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -28,15 +27,12 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * This is an modified version made by matjazpotocnik and include several fixes
- * @version 3.2.7
+ * This is modified version made by matjazp and include several fixes
+ * github-original: https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify
  * github-fork: https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify
  *
  * @changelog
- * option added to disable html minification triggered by page property (by kixe).
- * @example $page->skip_minify = true
- * @since 3.2.4
- * @see HTML()
+ * see CHANGELOG.md
  * ----------------------------------------------------------------------------------
  */
 
@@ -57,9 +53,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return array(
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.2',
-			'author' => 'David Karich & Conclurer GbR, kixe, matjazpotocnik, Philzen, TomS, gingebaker, janKir, gr4y and others',
-			'summary' => __('AIOM+ (All In One Minify) is a module to easily improve the performance of your website. By a simple function call Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding).'),
+			'version' => '4.0.3',
+			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
+			'summary' => __('AIOM+ (All In One Minify) is a module to improve the performance of your website. Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding). Even more: AIOM+ can enhance builtin template caching and noticeable speed up your site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
 			'singular' => true,
 			'autoload' => true,
@@ -204,12 +200,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$modules = $this->wire('modules');
 		$templates = $this->wire('templates');
 		$config = $this->wire('config');
-		
+
 		if($useTabs) {
 			// since 3.0.170 children inside InputfieldWrapper don't get style="width: xx%"
 			// so if tabs are used, the workaround is to use ukGrid layout that use uk-width-* classes
 			$adminTheme = $config->wire('adminTheme');
-			$adminTheme->ukGrid = true; 
+			$adminTheme->ukGrid = true;
 			$wiretabs = $modules->get('JqueryWireTabs');
 			$wrapper1 = new InputfieldWrapper(); //return value
 
@@ -569,7 +565,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if(self::$configData['cache_enable'] == 1) {
 			if(!is_file(self::$aiomCacheDir . 'aiom.enabled')) @file_put_contents(self::$aiomCacheDir . 'aiom.enabled', time());
 		} else {
-			if(is_file(self::$aiomCacheDir . 'aiom.enabled')) @unlink(self::$aiomCacheDir . 'aiom.enabled', time());
+			//if(is_file(self::$aiomCacheDir . 'aiom.enabled')) @unlink(self::$aiomCacheDir . 'aiom.enabled', time());
+			if(is_file(self::$aiomCacheDir . 'aiom.enabled')) @unlink(self::$aiomCacheDir . 'aiom.enabled');
 		}
 
 		// Check if the current template requires SSL.
@@ -908,7 +905,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string           The minimized code with generation information
 	 */
 	private static function _generatorInformation($data) {
-		return (!empty($data)) ? '/** Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ (All In One Minify) created by FlipZoom Media Inc. - David Karich (flipzoom.de) **/'.PHP_EOL.$data : '';
+		return (!empty($data)) ? '/** Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . static::getModuleInfo()['version'] . ' **/'.PHP_EOL.$data : '';
 		//return (!empty($data)) ? '/** Generated: '.date("Y-m-d H:i:s".' // Powered by AIOM+ (All In One Minify) created by FlipZoom Media Inc. - David Karich (flipzoom.de) **/'.PHP_EOL.$data : '';
 	}
 
@@ -919,7 +916,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string           The minimized code with generation information
 	 */
 	private static function _generatorInformationHtml($data) {
-		return (!empty($data)) ? $data.PHP_EOL.'<!-- Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ (All In One Minify) created by FlipZoom Media Inc. - David Karich (flipzoom.de) -->' : '';
+		return (!empty($data)) ? $data.PHP_EOL.'<!-- Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . static::getModuleInfo()['version'] . ' -->' : '';
 		//return (!empty($data)) ? '/** Generated: '.date("Y-m-d H:i:s".' // Powered by AIOM+ (All In One Minify) created by FlipZoom Media Inc. - David Karich (flipzoom.de) **/'.PHP_EOL.$data : '';
 	}
 
@@ -1021,10 +1018,10 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return array
 	 */
 	private static function _getFileInfoArray($_file, $extension) {
-
 		//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/bd6217545a46f64478577f68a8e22e42cf987278
 		$return = array();
 		$config = wire('config');
+		$isRemote = self::_isRemote($_file);
 
 		// Filter Directory Traversal (default: yes)
 		// Check existence and whether there is internal/external source.
@@ -1033,7 +1030,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$_path = rtrim($config->paths->root,'/').$_file;
 			//MP leave just filename, remove everything after ?, tipicaly used for cache busting  file.css?v=2.0.1
 			$_path = explode('?',$_path)[0];
-		} else if (strpos($_file, 'http') === 0 && self::_checkRemoteFileAccess($_file)) {
+		//} else if (strpos($_file, 'http') === 0 && self::_checkRemoteFileAccess($_file)) { //external resource
+		} else if ($isRemote && self::_checkRemoteFileAccess($_file)) { //external resource
 			//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/6a3b5570c01df4776dafa6e2112fa80e61dfcb04
 			// we use max_cache_lifetime as a placeholder because filemtime() doesn't work with http requests
 			$return['last_modified'] = time() - self::$configData['max_cache_lifetime'];
@@ -1042,7 +1040,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$_path  = (self::$configData['directory_traversal'] != 1) ? str_ireplace(array('../', './', '%2e%2e%2f', '..%2F'), '', $config->paths->templates.$_file) : $config->paths->templates.$_file;
 		}
 
-		if (!file_exists($_path)) {
+		if (!$isRemote && !file_exists($_path)) {
 			 self::_log("ERROR: $_path does not exist");
 			 return null;
 		}
@@ -1072,11 +1070,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 */
 	private static function _checkRemoteFileAccess($url) {
 		$file_headers = @get_headers($url);
-		if (preg_match('/200/',$file_headers[0])) return true;
+		if ($file_headers !== false && preg_match('/200/', $file_headers[0])) return true;
 		else {
 			$error = "ERROR: Connection to external datasource failed: '$url'";
 			if ($file_headers) $error .= " ($file_headers[0])";
-			throw new WireException($error);
+			//throw new WireException($error);
+			self::_log($error);
+			return false;
 		}
 	}
 
@@ -1338,7 +1338,20 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Checks if the url is absolute or relative.
+	 *
+	 * @param  string $url The URL to be checked
+	 * @return boolean
+	 */
+	private static function _isRemote($url) {
+		if (strpos($url, '//') >= max(strpos($url, '.'), strpos($url, '/')) || strpos($url, ':') !== false) {
+			return true; //absolute
+		} else {
+			return false; //relative
+		}
+	}
 
+	/**
 	 * Checks if ".min" or "-min" at the end of the file name exists.
 	 *
 	 * @param  string  $absolute_path Path with filename
@@ -1399,6 +1412,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 					$path = $link->href;
 					//MP skip over files already in cache
 					if(strpos($path, $cdir) !== false) continue;
+					//MP ignore remote files
+					if(self::_isRemote($path)) continue;
 					$path = str_replace($tdir, '', $path);
 					$link->href = self::CSS($path); //zbrise Page cache
 				}
@@ -1411,6 +1426,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 					//bd($path, 'HTML() path1');
 					//MP skip over files already in cache
 					if(strpos($path, $cdir) !== false) continue;
+					//MP ignore remote files
+					if(self::_isRemote($path)) continue;
 					$path = str_replace($tdir, '', $path);
 					//bd($path, 'HTML() path2');
 					$link->src = self::JS($path); //zbrise Page cache

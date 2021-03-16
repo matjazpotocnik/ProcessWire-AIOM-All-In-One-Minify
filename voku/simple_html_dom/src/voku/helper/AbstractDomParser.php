@@ -56,6 +56,8 @@ abstract class AbstractDomParser implements DomParserInterface
 
     /**
      * @var callable|null
+     *
+     * @phpstan-var null|callable([\voku\helper\XmlDomParser|\voku\helper\HtmlDomParser]): void
      */
     protected static $callback;
 
@@ -153,7 +155,6 @@ abstract class AbstractDomParser implements DomParserInterface
     {
         if ($multiDecodeNewHtmlEntity) {
             if (\class_exists('\voku\helper\UTF8')) {
-                /** @noinspection PhpUndefinedClassInspection */
                 $content = UTF8::rawurldecode($content, true);
             } else {
                 do {
@@ -170,7 +171,6 @@ abstract class AbstractDomParser implements DomParserInterface
         } else {
             /** @noinspection NestedPositiveIfStatementsInspection */
             if (\class_exists('\voku\helper\UTF8')) {
-                /** @noinspection PhpUndefinedClassInspection */
                 $content = UTF8::rawurldecode($content, false);
             } else {
                 $content = \rawurldecode(
@@ -311,7 +311,7 @@ abstract class AbstractDomParser implements DomParserInterface
      */
     public function save(string $filepath = ''): string
     {
-        $string = $this->innerHtml();
+        $string = $this->html();
         if ($filepath !== '') {
             \file_put_contents($filepath, $string, \LOCK_EX);
         }
@@ -356,6 +356,9 @@ abstract class AbstractDomParser implements DomParserInterface
         int $options = \LIBXML_NOEMPTYTAG
     ): string {
         $xml = $this->document->saveXML(null, $options);
+        if ($xml === false) {
+            return '';
+        }
 
         if ($removeXmlHeader) {
             $xml = \ltrim((string) \preg_replace('/<\?xml.*\?>/', '', $xml));
