@@ -37,7 +37,7 @@ class AIOMcache {
 
 		// check if AIOM cache file exist
 		if(!is_file($aiomCacheFile) || !is_readable($aiomCacheFile)) {
-			self::log("cache MISS: /$it no cache file $aiomCacheFile");
+			//self::log("cache MISS: /$it no cache file $aiomCacheFile");
 			return false;
 		}
 
@@ -91,7 +91,7 @@ class AIOMcache {
 		//we have a content, serve it
 		$len = @mb_strlen($out, 'utf8');
 		self::rewrite($out);
-		self::log("cache HIT: /$it serving $pageCacheFile ($len bytes)");
+		//self::log("cache HIT: /$it serving $pageCacheFile ($len bytes)");
 		echo $out;
 		exit(0);
 	}

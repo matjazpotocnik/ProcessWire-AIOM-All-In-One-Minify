@@ -12,8 +12,7 @@ caching and **noticeable** speed up your site.
 
 **NOTE**: This forked version includes several pull requests, fixes and modifications from the
 unmaintained [original AIOM+](https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify). See the
-changelog at the end of this document or CHANGELOG.md or sources for more info. Also, from version 4.0.0
-AIOM+ template caching is added by me.
+CHANGELOG.md or sources for more info. Also, from version 4.0.0 AIOM+ template caching is added by me.
 
 **NOTE:** Minimizing process, especially in automatic mode, can actually increase the page rendering time!
 I recommend that you minimize your assets in advance, then set up template caching and enable
@@ -25,7 +24,7 @@ I never tested it.
 
 - - -
 
-#### Information ####
+** Information **
 
 * All paths are relative to the template folder. URLs in css files will be automatically corrected. Nothing needs to be changed. 
 * If you make changes to the source stylesheet, LESS or javascript files, a new parsed and combined version is created automatically. 
@@ -56,7 +55,7 @@ I never tested it.
 * [Others](#questions-or-comments)
 
 <a name='instalation'></a>
-## Installation ## 
+## Installation ##
 
 1. Copy the files for this module to /site/modules/AllInOneMinify/
 2. In admin: Modules > Refresh.
@@ -187,7 +186,7 @@ Minimize multiple files into one file.
 <script src="<?php echo \AllInOneMinify::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?>"></script>
 ~~~
 
-**Tip:** You can also use the short syntax **"\AIOM"**. For example, `\AIOM::JS()`.
+**Tip:** You can also use the short syntax `"AIOM"`. For example, `\AIOM::JS()`.
 
 <a name='conditional-loading'></a>
 ## Conditional loading ##

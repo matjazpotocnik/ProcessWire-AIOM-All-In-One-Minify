@@ -1,11 +1,3 @@
-/*
-.AdminThemeUikit .AIOM #wrap_uninstall {
-	margin-top: 20px;
-}
-.AdminThemeUikit #AIOMtabs {
-	margin-top: -22px;
-}
-*/
 .AdminThemeUikit #wrapAIOMtabs > .InputfieldContent {
 	padding: 15px 0 0 15px;
 }
@@ -13,4 +5,46 @@
 	padding-top: 54px;
 	margin-top: 0;
 	margin-bottom: -16px;
+}
+
+/* readme */
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup ul,
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup ol {
+	padding: 0 3em;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup li {
+	padding: initial;
+	margin: initial;
+	list-style: initial;
+	display: list-item;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup h1 {
+	font-size: 1.6em;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup h2 {
+	border-bottom: 1px solid #aaa;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup h4 {
+	font-size: 1.4em;
+	color: #222;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup pre {
+	border: 1px solid #ccc;
+	padding: 10px;
+}
+.AdminThemeDefault #AIOMtab-4 .InputfieldMarkup pre code {
+	display: block;
+	white-space: nowrap;
+	overflow:auto;
+}
+
+/* usage */
+.AdminThemeDefault #AIOMtab-3 .InputfieldMarkup ul,
+.AdminThemeDefault #AIOMtab-3 .InputfieldMarkup ol {
+	padding: 0 3em;
+}
+.AdminThemeDefault #AIOMtab-3 .InputfieldMarkup li {
+	padding: initial;
+	margin: initial;
+	display: list-item;
 }

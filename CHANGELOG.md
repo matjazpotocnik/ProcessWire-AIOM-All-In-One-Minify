@@ -1,5 +1,8 @@
 ## Changelog ##
 
+4.0.4
+- Reduce logging (Matjaž Potočnik)
+
 4.0.3
 - Skip external assets in auto minimize mode without throwing an error (Matjaž Potočnik)
 - Bug fix (Matjaž Potočnik)

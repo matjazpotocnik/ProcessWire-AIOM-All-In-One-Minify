@@ -42,6 +42,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	const min_cache_lifetime = 60; // 1 minute
 	const max_cache_lifetime = 31536000; // 1 year
 	const default_cache_lifetime = 2419200; // 28 days
+	const debug = false;
 
 	/**
 	 * Module info
@@ -53,7 +54,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return array(
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.3',
+			'version' => '4.0.4',
 			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
 			'summary' => __('AIOM+ (All In One Minify) is a module to improve the performance of your website. Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding). Even more: AIOM+ can enhance builtin template caching and noticeable speed up your site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
@@ -143,7 +144,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		static $n = 0;
 		$n++;
 		if($useTabs) {
-			$fieldset = new InputfieldWrapper();
+			//$fieldset = new InputfieldWrapper();
+			//https://processwire.com/talk/topic/24934-using-tabs-wiretabs-in-a-module-config/?tab=comments#comment-216968
+			$fieldset = wire(new InputfieldWrapper());
 			$fieldset->attr('title', $label);
 			$fieldset->attr('class', 'WireTab');
 		} else {
@@ -207,7 +210,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$adminTheme = $config->wire('adminTheme');
 			$adminTheme->ukGrid = true;
 			$wiretabs = $modules->get('JqueryWireTabs');
-			$wrapper1 = new InputfieldWrapper(); //return value
+			//$wrapper1 = new InputfieldWrapper(); //return value
+			$wrapper1 = $this->wire(new InputfieldWrapper());
 
 			$wrapper = $modules->get('InputfieldFieldset');
 			$wrapper->label = $labelSettings;
@@ -240,7 +244,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 			$wrapper1->add($wrapper);
 		} else {
-			$wrapper = new InputfieldWrapper(); //return value
+			//$wrapper = new InputfieldWrapper(); //return value
+			$wrapper = $this->wire(new InputfieldWrapper());
 		}
 
 		$fieldset = $this->_newTab($useTabs, $labelCaching); //AIOMtab-1
@@ -270,15 +275,15 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		//$field->collapsed = Inputfield::collapsedBlank;
 		$fieldset->add($field);
 
-		$_cacheInfoPage     = self::_getNumberOfPagesCacheFiles();
-		$_cacheInfoAiom     = self::_getNumberOfAiomCacheFiles();
+		//$_cacheInfoPage     = self::_getNumberOfPagesCacheFiles();
+		//$_cacheInfoAiom		  = self::_getNumberOfAiomCacheFiles(); //MP commented due to performance reasons
 		$field              = $modules->get('InputfieldMarkup');
 		$field->columnWidth = 33;
 		$field->label       = __('Cache control');
 		//$field->description = __('Here you can delete all AIOM+ and template cache files.').'<br><br>';
 		$field->description = __('Here you can delete all AIOM+ cache files.').'<br><br>';
 		$field->entityEncodeText = false;
-		$field->value  = sprintf(__('Cached files: %s | Used space: %s'), $_cacheInfoAiom['numberOfFiles'], $_cacheInfoAiom['bytesTotal']);
+		//$field->value  = sprintf(__('Cached files: %s | Used space: %s'), $_cacheInfoAiom['numberOfFiles'], $_cacheInfoAiom['bytesTotal']);
 		//$field->value .= sprintf(__('Template cache: Pages cached: %s | Cache files: %s | Used space: %s'), $_cacheInfoPage['numberOfPages'], $_cacheInfoPage['numberOfFiles'], $_cacheInfoPage['bytesTotal']).'<br>';
 
 				$field_button           = $modules->get('InputfieldButton');
@@ -645,8 +650,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			// Write the minimized file to the file system.
 			$file = self::$assetsCacheDir.$cacheFile;
 			if(@file_put_contents($file, self::_generatorInformation($_js), LOCK_EX) !== false) {
-				self::_log("$file created");
-				//bd("JS() $file created");
+				if(self::debug) self::_log("$file created");
 				if(@wireChmod($file) === false) {
 					self::_log("ERROR: wireChmod($file) failed");
 				}
@@ -801,8 +805,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			// Write the minimized file to the file system.
 			$file = self::$assetsCacheDir.$cacheFile;
 			if(@file_put_contents($file, self::_generatorInformation($_css), LOCK_EX) !== false) {
-				//self::_log("$file created");
-				//bd("CSS() $file created");
+				if(self::debug) self::_log("$file created");
 				if(@wireChmod($file) === false) {
 					self::_log("ERROR: wireChmod($file) failed");
 				}
@@ -842,7 +845,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$numRemoved = 0;
 		if(is_dir(self::$pagesCacheDir)) {
 			$numRemoved = CacheFile::removeAll(self::$pagesCacheDir);
-			//bd("Deleted $numRemoved page(s) cache files from " . self::$pagesCacheDir);
 		}
 		self::_log("Deleted $numRemoved files from " . self::$pagesCacheDir);
 		return $numRemoved;
@@ -879,7 +881,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 						self::_log("ERROR: unlink($file) failed");
 					} else {
 						$numRemoved1++;
-						self::_log("Deleted $file");
+						if(self::debug) self::_log("Deleted $file");
 						//bd($file, "_clearAssetsCache() deleted file");
 					}
 				} else {
@@ -1081,7 +1083,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Create an array with the number and the size of the assets cached data
+	 * Create an array with the number and the size of the assets (css/js files) cached data.
 	 *
 	 * @return array Number and size of the cache data
 	 */
@@ -1131,7 +1133,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$_numberOfPages = count(scandir($dir)) - 2;
 		};
 
-		return array('numberOfPages' => number_format($_numberOfPages),'numberOfFiles' => number_format($_numberOfFiles), 'bytesTotal' => self::_wireBytesStr($_bytesTotal));
+		return array('numberOfPages' => number_format($_numberOfPages), 'numberOfFiles' => number_format($_numberOfFiles), 'bytesTotal' => self::_wireBytesStr($_bytesTotal));
 	}
 
 	/**
@@ -1140,7 +1142,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @param bool $delete delete the file if true
 	 * @return array Number and size of the page cache data
 	 */
-	private static function _getNumberOfAiomCacheFiles($delete = false) {
+	private static function _getNumberOfAiomCacheFilesOld($delete = false) {
 
 		$dir = self::$aiomCacheDir;
 		$_numberOfFiles = 0;
@@ -1162,6 +1164,74 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return array('numberOfFiles' => number_format($_numberOfFiles), 'bytesTotal' => self::_wireBytesStr($_bytesTotal));
 	}
+
+	/**
+	 * Create an array with the number and the size of the aiom cached data.
+	 *
+	 * @param bool $delete delete the file if true
+	 * @return array Number and size of the page cache data
+	 */
+	private static function _getNumberOfAiomCacheFiles($delete = false) {
+
+		$dir = self::$aiomCacheDir;
+		$_numberOfFiles = 0;
+		$_bytesTotal    = 0;
+		
+		if(is_dir($dir)) {
+			$_cacheFiles = self::getDirContents($dir);
+
+			foreach ($_cacheFiles as $_cacheFile) {
+				if(/*is_file($_cacheFile) && */pathinfo($_cacheFile, PATHINFO_FILENAME) != 'aiom.enabled') {
+					$_numberOfFiles++;
+					$_bytesTotal    += filesize($_cacheFile);
+					if($delete) @unlink($_cacheFile);
+				}
+			}
+		}
+
+		return array('numberOfFiles' => number_format($_numberOfFiles), 'bytesTotal' => self::_wireBytesStr($_bytesTotal));
+	}
+	
+	/**
+	 * Create a list of files recursively. PHP 7 and up.
+	 *
+	 * @param string $dir directory name
+	 */
+	private static function getDirContents($dir) {
+		$files = array_diff(@scandir($dir), array('.', '..'));
+
+		foreach($files as $key => $value) {
+			$path = realpath($dir.DIRECTORY_SEPARATOR.$value);
+			if(!is_dir($path)) {
+				yield $path;
+			} else {
+				yield from self::getDirContents($path);
+				//yield $path; //skip directories
+			}
+		}
+	}
+	
+	/* old version	
+	private static function getDirContentsx($dir, &$results = array()){
+
+    $files = scandir($dir);
+
+    foreach($files as $key => $value){
+        $path = realpath($dir.DIRECTORY_SEPARATOR.$value);
+        if(is_dir($path) == false) {
+            $results[] = $path;
+        }
+        else if($value != "." && $value != "..") {
+            getDirContents($path, $results);
+            if(is_dir($path) == false) {
+                $results[] = $path;
+            }   
+        }
+    }
+    return $results;
+
+	}
+	*/
 
 	/**
 	 * Empty /site/assets/aiom/ (cs/jss files cache) AND /site/assets/cache/Page/ (template cache)
@@ -1465,7 +1535,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			//wire('session')->PageRenderNoCachePage == $page->id
 			$cacheFile = wire('modules')->get('PageRender')->getCacheFile($page);
 			$cacheFile->save($html);
-			self::_log((string) $cacheFile . " updated");
+			if(self::debug) self::_log((string) $cacheFile . " updated");
 			//bd('HTML() '. (string) $cacheFile . ' updated');
 		}
 
