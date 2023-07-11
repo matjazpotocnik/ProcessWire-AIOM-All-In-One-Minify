@@ -26,7 +26,8 @@ class AIOMcache {
 				return false;
 			}
 
-		$it = isset($_GET['it']) ? $_GET['it'] : '';
+		//$it = isset($_GET['it']) ? $_GET['it'] : '';
+		$it = $_GET['it'] ?? ''; //rector
 		$it = trim($it, '/') . '/';
 		if($it === '/') $it = '';
 
@@ -113,7 +114,7 @@ class AIOMcache {
 
 		if(empty($rootPath) && !empty($_SERVER['SCRIPT_FILENAME'])) {
 			// first try to determine from the script filename
-			$parts = explode(DIRECTORY_SEPARATOR, $_SERVER['SCRIPT_FILENAME']);
+			$parts = explode(DIRECTORY_SEPARATOR, (string) $_SERVER['SCRIPT_FILENAME']);
 			array_pop($parts); // most likely: index.php
 			$rootPath = implode('/', $parts) . '/';
 			if(!file_exists($rootPath . 'wire/core/ProcessWire.php')) $rootPath = '';
@@ -196,18 +197,18 @@ class AIOMcache {
 	 * @return bool Success state: true if log written, false if not.
 	 *
 	 */
-	private static function log($str, array $options = array()) {
+	private static function log($str, $options = []) {
 
 		$logFile = self::$logFile;
 		//@file_put_contents($logFile, date("Y-m-d H:i:s") . "\t" . $str . "\r\n", FILE_APPEND);
 		//return;
 
-		$defaults = array(
+		$defaults = [
 			'mergeDups' => 0,
 			'allowDups' => true,
 			'maxTries' => 2, //MP 20
 			'maxTriesDelay' => 100, //MP 2000
-		);
+		];
 		$delimeter = "\t";
 
 		if(!$logFile) return;
@@ -270,7 +271,7 @@ class AIOMcache {
 				$newLength = $chunkLength > $oldLength ? $oldLength - $chunkLength : 0;
 				ftruncate($fp, $newLength);
 				fseek($fp, 0, SEEK_END);
-				fwrite($fp, $chunk);
+				fwrite($fp, (string) $chunk);
 			}
 		} else {
 			// already at EOF because we are appending or creating

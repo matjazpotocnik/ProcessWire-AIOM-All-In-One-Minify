@@ -7,24 +7,22 @@ AIOM+ (All In One Minify) is a ProcessWire module to improve the performance of 
 By a simple function call Style sheets, LESS and JavaScript files can be parsed, minimized and
 combined into single file. This reduces the server requests, loading time and reduces the
 traffic. Besides, the generated HTML source code, Style sheets and JavaScript files can be minimized
-automatically (without any programming). Even more: AIOM+ can enhance ProcessWire's builtin template
-caching and **noticeable** speed up your site.
+automatically (without any programming) and all generated files can be loaded over a Cookieless
+domain (domain sharding). Even more: AIOM+ can enhance ProcessWire's builtin template caching and
+**noticeable** speed up your site.
 
-**NOTE**: This forked version includes several pull requests, fixes and modifications from the
-unmaintained [original AIOM+](https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify). See the
-CHANGELOG.md or sources for more info. Also, from version 4.0.0 AIOM+ template caching is added by me.
+**NOTE**: This forked version includes several pull requests, fixes and modifications. See the
+changelog at the end of this document or CHANGELOG.md or sources for more info. Also, from version 4.0.0
+AIOM+ template caching is added by Matjaž Potočnik.
 
-**NOTE:** Minimizing process, especially in automatic mode, can actually increase the page rendering time!
-I recommend that you minimize your assets in advance, then set up template caching and enable
-AIOM+ caching. Or use a commercial product [ProCache](https://processwire.com/store/pro-cache/).
-
-**NOTE:** If you implement manual minimizing of CSS/LESS/JS files (by calling API function in your template 
-file) and you uninstall this module, your site will stop working! I don't use LESS or Domain sharding, so
-I never tested it.
+**NOTE:** Minimizing process slightly increases the page rendering time. I recommend that you
+minimize your CSS and JS assets in advance (and let web server and browser cache them), then set up
+template caching and enable AIOM+ caching. Or use a commercial product
+[ProCache](https://processwire.com/store/pro-cache/).
 
 - - -
 
-** Information **
+#### Information ####
 
 * All paths are relative to the template folder. URLs in css files will be automatically corrected. Nothing needs to be changed. 
 * If you make changes to the source stylesheet, LESS or javascript files, a new parsed and combined version is created automatically. 
@@ -32,6 +30,7 @@ I never tested it.
 * During development, you can enable developer mode. Files are parsed and combined but not minimized and browser caching is prevented. 
 * You can use the short syntax `\AIOM` or use the full class name `\AllInOneMinify` in your templates. 
 * The generated files can be delivered via a subdomain (Domain sharding / Cookieless domain).
+[comment]: # (* LESS files can directly server-side generated on the fly, without plugins. AIOM+ has a complete, high-performance PHP ported LESS library of the official LESS processor included!) 
 * **NOTE**: There are a few unsupported LESS features: 
     * Evaluation of JavaScript expressions within back-ticks
     * Definition of custom functions
@@ -55,27 +54,25 @@ I never tested it.
 * [Others](#questions-or-comments)
 
 <a name='instalation'></a>
-## Installation ##
+## Installation ## 
 
 1. Copy the files for this module to /site/modules/AllInOneMinify/
-2. In admin: Modules > Refresh.
+2. In admin: Modules > Check for new modules.
 3. Install Module "AIOM+ (All In One Minify) for CSS, LESS, JS and HTML".
 
 <a name='caching'></a>
 ## Caching ##
 
-In ProcessWire, a template can be configured to cache its output on the front-
-end so that it only executes its PHP template-file at specific intervals (cache
-time) and delivers cached content the rest of the time. Template caching can
-reduce page render time on resource-heavy pages by serving pages from the disk
-cache rather than creating pages on every request. But caching is not that
-efficient on simple, resource-light pages. AIOM+ uses cached pages but delivers
-them more efficiently. For this to work, you must enable template caching AND
-also edit /index.php file on your webroot to include the file AIOMcache.php. I
-know modifying core ProcessWire files is not a good idea, but I don't see other
-options. index.php file rarely changes during ProcessWire upgrade, so it's not a
-big deal. Edit `/index.php` located on your webroot folder with a text editor and
-add this line **before** any ProcessWire statements:
+In ProcessWire, a template can be configured to cache its output on the front-end so that it only
+executes its PHP template-file at certain intervals (cache time) and delivers cached content the
+rest of the time. Templates caching can reduce page render time on resource-heavy pages by
+serving pages from disk cache rather than creating pages on every request. But caching is not that
+efficient on simple, resource-light pages. AIOM+ uses cached pages but delivers them more
+efficiently. For this to work, you have to enable template caching AND also edit
+`/index.php` file on your webroot to include file `AIOMcache.php`. I know that modifying core
+ProcessWire files is not a good idea, but I don't see other options. index.php file is very rarely
+changed during ProcessWire upgrade, so I think it's not a big deal. Edit `index.php` located on your
+webroot folder with a text editor and add this line *before* any ProcessWire statements:
 
 ~~~html
 @include('site/modules/AllInOneMinify/AIOMcache.php')
@@ -93,11 +90,13 @@ but it's better than nothing.
 
 Next, edit the template you want to enable caching, select the _Cache_ tab and enter:
 
-_Cache Status:_ Enabled, _Cache Time:_ enter the number of seconds, e.g. 3600 for an hour,
-_Page Save/Cache Expiration:_ Clear cache for the saved page only,
+_Cache Status:_ Enabled
+_Cache Time:_ enter the number of seconds, e.g. 3600 for an hour
+_Page Save/Cache Expiration:_ Clear cache for the saved page only
 _Cache when rendering pages for these users:_ Guests only
 
-Finally, enable AIOM+ template caching in this module settings under the Caching tab.
+When a page is served from the AIOM+ cache `data-cache='AIOM'` will be added to the `<body>` or `<html>` 
+tag. Finally, enable AIOM+ template caching in this module settings under Caching tab.
 
 When you use template caching (with or without AIOM+) and you modify the primary template file (for
 example, basic-page.php), prepend file (_init.php) or append file, the modifications made
@@ -105,33 +104,30 @@ to those files are not reflected on the cached page. AIOM+ can be instructed to 
 if they are changed, it clears the cache for the page. You can specify files to monitor by entering
 the file names in the Aditional cache clear option field. Enter each file name on its own line.
 Files are relative to `/site/templates/` folder. Specify template files (alternate/prepend/append)
-as `{template_files}` and `{config_template_files}`. This monitoring of files works even if you don't
-enable AIOM+ caching.
+as `{template_files}` and `{config_template_files}`. This works even if you don't enable AIOM+ caching.
 
 **NOTE:** AIOM+ template caching works only for guest users (even if you setup template caching for guests
-and logged-in users), that is, it won't fire up if _wire_challenge_ or _wires_challenge_ cookie is present in
-the page request. It also won't work for POST requests or GET requests with parameters. When a page is served 
-from the AIOM+ cache `data-cache='AIOM'` will be added to the `<body>` or `<html>` tag. 
+and logged-in users), that is, it won't fire up if wire_challenge or wires_challenge cookie is present in
+the page request. It also won't work for POST requests or GET requests with parameters.
 
 <a name='minimizing'></a>
 ## Minimizing ##
 
-You can minimize generated HTML source, CSS/LESS and JS files. CSS and JS files can be minimized automatically 
+You can minimize generated HTML source, CSS/LESS files and JS files. CSS and JS files can be minimized automatically 
 or manually. In automatic mode, AIOM+ parses the generated HTML and replaces the reference to CSS/JS files with
 the minified version. In manual mode, you call the API function in your template file to minimize files. 
-**Don't mix both methods!**
 
 <a name='minimize-stylesheets-and-parse-less-files'></a>
-## Minimize Stylesheets and parse LESS files manually ##
+## Minimize Stylesheets and parse LESS files ##
 
 Minimization of a single file.
 
 ~~~html
 <!-- CSS Stylesheet -->
-<link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.css'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.css'); ?>">
 
 <!-- LESS file -->
-<link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.less'); ?>">
 ~~~
 
 Minimize multiple files into one file. You can even mix stylesheet and LESS files in the parsing/combining process!
@@ -150,9 +146,9 @@ Now you need in the layout LESS file access to the variables of the color LESS f
 It's easier than you think. Through a simple referencing of source LESS file. For example: 
 
 ~~~html
-<link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS('css/color.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/color.less'); ?>">
 ...
-<link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS('css/layout.less'); ?>">
+<link rel="stylesheet" type="text/css" href="<?php echo \AllInOneMinify::CSS('css/layout.less'); ?>">
 ~~~
 
 Example content of `color.less`
@@ -174,7 +170,7 @@ body {
 That's all. Pretty, hu? The complete documentation of LESS you can find at www.lesscss.org
 
 <a name='minimize-javascripts'></a>
-## Minimize Javascripts manually##
+## Minimize Javascripts ##
 
 Minimization of a single file.
 
@@ -188,7 +184,7 @@ Minimize multiple files into one file.
 <script src="<?php echo \AllInOneMinify::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?>"></script>
 ~~~
 
-**Tip:** You can also use the short syntax `"AIOM"`. For example, `\AIOM::JS()`.
+**Tip:** You can also use the short syntax **"\AIOM"**. For example, `\AIOM::JS()`.
 
 <a name='conditional-loading'></a>
 ## Conditional loading ##
@@ -202,7 +198,7 @@ Here is an example of conditional loading:
 					        array('loadOn'  => 'id|template=1002|1004|sitemap', 
 						          'files'   => array('css/special.css', 'css/special-theme.less'))); ?>
 						          
-<link rel="stylesheet" href="<?php echo \AIOM::CSS($stylesheets); ?>" />
+<link rel="stylesheet" type="text/css" href="<?php echo \AIOM::CSS($stylesheets); ?>" />
 ~~~
 
 The same you can do with `\AIOM::JS()`. `loadOn` must be an [ProcessWire API selector](https://processwire.com/docs/selectors/).
@@ -239,9 +235,9 @@ etc., are excluded from the minimization.
 <a name='minimize-css'></a>
 ## Minimize CSS automatically ##
 
-The HTML source code is searched for **internal** links to Stylesheet (.css) files and they are automatically 
-replaced with minimized version. Simply enable the option under the Minimize tab. No change to the source
-(template file) is needed. The following line:
+The HTML source code is searched for links to Stylesheet (.css) files and thea are automatically replaced
+with minimized version. Enable the option under the Minimize tab. No change to the template file is needed. 
+The following line:
 
 ~~~html
 <link rel="stylesheet" href="<?php echo $config->site->templates . 'file.css'; ?>">
@@ -256,8 +252,8 @@ is replaced with:
 <a name='minimize-js'></a>
 ## Minimize JS automatically ##
 
-The HTML source code is searched for **internal** JavaScript files (.js) and they are automatically replaced 
-with minimized version. No change to the source (template file) is needed. The following line:
+The HTML source code is searched for JavaScript files (.js) and automatically replaced with minimized version. 
+No change to the template file is needed. The following line:
 
 ~~~html
 <script src="<?php echo $config->site->templates . 'file.js'; ?>">

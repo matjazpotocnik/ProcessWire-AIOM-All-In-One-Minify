@@ -1,5 +1,9 @@
 ## Changelog ##
 
+4.0.5
+- Added support for config/template prepend/append file in caching (Matjaž Potočnik)
+- Fixed PHP 8.3 issue in less parser (Matjaž Potočnik)
+
 4.0.4
 - Reduce logging (Matjaž Potočnik)
 

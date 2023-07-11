@@ -89,7 +89,7 @@ class XmlDomParser extends AbstractDomParser
      * @throws \BadMethodCallException
      * @throws \RuntimeException
      *
-     * @return XmlDomParser
+     * @return static
      */
     public static function __callStatic($name, $arguments)
     {
@@ -143,10 +143,11 @@ class XmlDomParser extends AbstractDomParser
      *
      * @param string   $xml
      * @param int|null $libXMLExtraOptions
+     * @param bool     $useDefaultLibXMLOptions
      *
      * @return \DOMDocument
      */
-    protected function createDOMDocument(string $xml, $libXMLExtraOptions = null): \DOMDocument
+    protected function createDOMDocument(string $xml, $libXMLExtraOptions = null, $useDefaultLibXMLOptions = true): \DOMDocument
     {
         if ($this->callbackBeforeCreateDom) {
             $xml = \call_user_func($this->callbackBeforeCreateDom, $xml, $this);
@@ -159,14 +160,17 @@ class XmlDomParser extends AbstractDomParser
         }
         \libxml_clear_errors();
 
-        $optionsXml = \LIBXML_DTDLOAD | \LIBXML_DTDATTR | \LIBXML_NONET;
+        $optionsXml = 0;
+        if ($useDefaultLibXMLOptions) {
+            $optionsXml = \LIBXML_DTDLOAD | \LIBXML_DTDATTR | \LIBXML_NONET;
 
-        if (\defined('LIBXML_BIGLINES')) {
-            $optionsXml |= \LIBXML_BIGLINES;
-        }
+            if (\defined('LIBXML_BIGLINES')) {
+                $optionsXml |= \LIBXML_BIGLINES;
+            }
 
-        if (\defined('LIBXML_COMPACT')) {
-            $optionsXml |= \LIBXML_COMPACT;
+            if (\defined('LIBXML_COMPACT')) {
+                $optionsXml |= \LIBXML_COMPACT;
+            }
         }
 
         if ($libXMLExtraOptions !== null) {
@@ -193,11 +197,7 @@ class XmlDomParser extends AbstractDomParser
         $xmlErrors = \libxml_get_errors();
         if ($sxe !== false && \count($xmlErrors) === 0) {
             $domElementTmp = \dom_import_simplexml($sxe);
-            if (
-                $domElementTmp
-                &&
-                $domElementTmp->ownerDocument instanceof \DOMDocument
-            ) {
+            if ($domElementTmp->ownerDocument instanceof \DOMDocument) {
                 $documentFound = true;
                 $this->document = $domElementTmp->ownerDocument;
             }
@@ -265,7 +265,7 @@ class XmlDomParser extends AbstractDomParser
      */
     public function find(string $selector, $idx = null)
     {
-        $xPathQuery = SelectorConverter::toXPath($selector, true);
+        $xPathQuery = SelectorConverter::toXPath($selector, true, false);
 
         $xPath = new \DOMXPath($this->document);
 
@@ -370,14 +370,18 @@ class XmlDomParser extends AbstractDomParser
     /**
      * @param string $content
      * @param bool   $multiDecodeNewHtmlEntity
+     * @param bool   $putBrokenReplacedBack
      *
      * @return string
      */
-    public function fixHtmlOutput(string $content, bool $multiDecodeNewHtmlEntity = false): string
-    {
+    public function fixHtmlOutput(
+        string $content,
+        bool $multiDecodeNewHtmlEntity = false,
+        bool $putBrokenReplacedBack = true
+    ): string {
         $content = $this->decodeHtmlEntity($content, $multiDecodeNewHtmlEntity);
 
-        return self::putReplacedBackToPreserveHtmlEntities($content);
+        return self::putReplacedBackToPreserveHtmlEntities($content, $putBrokenReplacedBack);
     }
 
     /**
@@ -389,7 +393,7 @@ class XmlDomParser extends AbstractDomParser
      */
     public function getElementByClass(string $class): SimpleXmlDomNodeInterface
     {
-        return $this->findMulti(".${class}");
+        return $this->findMulti(".{$class}");
     }
 
     /**
@@ -401,7 +405,7 @@ class XmlDomParser extends AbstractDomParser
      */
     public function getElementById(string $id): SimpleXmlDomInterface
     {
-        return $this->findOne("#${id}");
+        return $this->findOne("#{$id}");
     }
 
     /**
@@ -432,7 +436,7 @@ class XmlDomParser extends AbstractDomParser
      */
     public function getElementsById(string $id, $idx = null)
     {
-        return $this->find("#${id}", $idx);
+        return $this->find("#{$id}", $idx);
     }
 
     /**
@@ -475,10 +479,11 @@ class XmlDomParser extends AbstractDomParser
      * Get dom node's outer html.
      *
      * @param bool $multiDecodeNewHtmlEntity
+     * @param bool $putBrokenReplacedBack
      *
      * @return string
      */
-    public function html(bool $multiDecodeNewHtmlEntity = false): string
+    public function html(bool $multiDecodeNewHtmlEntity = false, bool $putBrokenReplacedBack = true): string
     {
         if (static::$callback !== null) {
             \call_user_func(static::$callback, [$this]);
@@ -490,7 +495,7 @@ class XmlDomParser extends AbstractDomParser
             return '';
         }
 
-        return $this->fixHtmlOutput($content, $multiDecodeNewHtmlEntity);
+        return $this->fixHtmlOutput($content, $multiDecodeNewHtmlEntity, $putBrokenReplacedBack);
     }
 
     /**
@@ -499,7 +504,7 @@ class XmlDomParser extends AbstractDomParser
      * @param string   $html
      * @param int|null $libXMLExtraOptions
      *
-     * @return self
+     * @return $this
      */
     public function loadHtml(string $html, $libXMLExtraOptions = null): DomParserInterface
     {
@@ -516,7 +521,7 @@ class XmlDomParser extends AbstractDomParser
      *
      * @throws \RuntimeException
      *
-     * @return XmlDomParser
+     * @return $this
      */
     public function loadHtmlFile(string $filePath, $libXMLExtraOptions = null): DomParserInterface
     {
@@ -525,7 +530,7 @@ class XmlDomParser extends AbstractDomParser
             &&
             !\file_exists($filePath)
         ) {
-            throw new \RuntimeException("File ${filePath} not found");
+            throw new \RuntimeException("File {$filePath} not found");
         }
 
         try {
@@ -535,11 +540,11 @@ class XmlDomParser extends AbstractDomParser
                 $html = \file_get_contents($filePath);
             }
         } catch (\Exception $e) {
-            throw new \RuntimeException("Could not load file ${filePath}");
+            throw new \RuntimeException("Could not load file {$filePath}");
         }
 
         if ($html === false) {
-            throw new \RuntimeException("Could not load file ${filePath}");
+            throw new \RuntimeException("Could not load file {$filePath}");
         }
 
         return $this->loadHtml($html, $libXMLExtraOptions);
@@ -575,12 +580,13 @@ class XmlDomParser extends AbstractDomParser
      *
      * @param string   $xml
      * @param int|null $libXMLExtraOptions
+     * @param bool     $useDefaultLibXMLOptions
      *
-     * @return XmlDomParser
+     * @return $this
      */
-    public function loadXml(string $xml, $libXMLExtraOptions = null): self
+    public function loadXml(string $xml, $libXMLExtraOptions = null, $useDefaultLibXMLOptions = true): self
     {
-        $this->document = $this->createDOMDocument($xml, $libXMLExtraOptions);
+        $this->document = $this->createDOMDocument($xml, $libXMLExtraOptions, $useDefaultLibXMLOptions);
 
         return $this;
     }
@@ -590,19 +596,20 @@ class XmlDomParser extends AbstractDomParser
      *
      * @param string   $filePath
      * @param int|null $libXMLExtraOptions
+     * @param bool     $useDefaultLibXMLOptions
      *
      * @throws \RuntimeException
      *
-     * @return XmlDomParser
+     * @return $this
      */
-    public function loadXmlFile(string $filePath, $libXMLExtraOptions = null): self
+    public function loadXmlFile(string $filePath, $libXMLExtraOptions = null, $useDefaultLibXMLOptions = true): self
     {
         if (
             !\preg_match("/^https?:\/\//i", $filePath)
             &&
             !\file_exists($filePath)
         ) {
-            throw new \RuntimeException("File ${filePath} not found");
+            throw new \RuntimeException("File {$filePath} not found");
         }
 
         try {
@@ -612,14 +619,14 @@ class XmlDomParser extends AbstractDomParser
                 $xml = \file_get_contents($filePath);
             }
         } catch (\Exception $e) {
-            throw new \RuntimeException("Could not load file ${filePath}");
+            throw new \RuntimeException("Could not load file {$filePath}");
         }
 
         if ($xml === false) {
-            throw new \RuntimeException("Could not load file ${filePath}");
+            throw new \RuntimeException("Could not load file {$filePath}");
         }
 
-        return $this->loadXml($xml, $libXMLExtraOptions);
+        return $this->loadXml($xml, $libXMLExtraOptions, $useDefaultLibXMLOptions);
     }
 
     /**

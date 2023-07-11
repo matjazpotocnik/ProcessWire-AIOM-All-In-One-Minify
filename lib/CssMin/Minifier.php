@@ -387,7 +387,8 @@ class Minifier
 
                 // Remove all spaces only for base64 encoded URLs.
                 if (stripos($token, 'base64,') !== false) {
-                    $token = preg_replace('/\s+/S', '', $token);
+                		//https://github.com/Cyperghost/YUI-CSS-compressor-PHP-port/commit/76ad4092ef99533bc6968de5beab34a1100e388d
+                    $token = preg_replace('/\s+/S', ' ', $token);
                 }
 
                 $ret .= 'url('. $this->registerPreservedToken(trim($token)) .')';
