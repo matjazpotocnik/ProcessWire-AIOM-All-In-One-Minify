@@ -324,9 +324,10 @@ interface SimpleHtmlDomInterface extends \IteratorAggregate
     /**
      * Returns the parent of node.
      *
-     * @return SimpleHtmlDomInterface
+     * @return SimpleHtmlDomInterface|null
      */
-    public function parentNode(): self;
+    //MP https://github.com/voku/simple_html_dom/pull/98/commits/ec3b25e098ca5f8a0e50c0a6fd7e0001a21c7f86
+    public function parentNode(): ?self;
 
     /**
      * Returns the previous sibling of node.

@@ -23,6 +23,16 @@ abstract class AbstractSimpleHtmlDom
         'innerhtmlkeep'    => 'innerHtmlKeep',
     ];
 
+    //MP https://github.com/voku/simple_html_dom/pull/106/commits/080b17248b865f92f9278d5a89a03538d6623c20
+    /** 
+     * @var string[] 
+     */
+    protected static $stringDomNodes = [
+        'id',
+        'prefix',
+        'content'
+    ];
+
     /**
      * @var \DOMElement|\DOMNode|null
      */
@@ -167,11 +177,15 @@ abstract class AbstractSimpleHtmlDom
             default:
                 if ($this->node && \property_exists($this->node, $nameOrig)) {
                     // INFO: Cannot assign null to property DOMNode::* of type string
-                    if ($nameOrig === 'prefix' || $nameOrig === 'textContent') {
+                    //MP https://github.com/voku/simple_html_dom/pull/106/commits/080b17248b865f92f9278d5a89a03538d6623c20
+                    if (in_array($nameOrig, self::$stringDomNodes)) {
                         $value = (string)$value;
                     }
 
-                    return $this->node->{$nameOrig} = $value;
+                    //MP https://github.com/voku/simple_html_dom/pull/110/commits/0c27c54bece43cb223ce5bbdd5abafe262fd49b7
+                    if (!is_null($value)) {
+                        return $this->node->{$nameOrig} = $value;
+                    }
                 }
 
                 return $this->setAttribute($name, $value);

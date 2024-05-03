@@ -684,11 +684,16 @@ class SimpleHtmlDom extends AbstractSimpleHtmlDom implements \IteratorAggregate,
     /**
      * Returns the parent of node.
      *
-     * @return SimpleHtmlDomInterface
+     * @return SimpleHtmlDomInterface|null
      */
-    public function parentNode(): SimpleHtmlDomInterface
+    //MP https://github.com/voku/simple_html_dom/pull/98/commits/ec3b25e098ca5f8a0e50c0a6fd7e0001a21c7f86
+    public function parentNode(): ?SimpleHtmlDomInterface
     {
-        return new static($this->node->parentNode);
+        if ($node = $this->node->parentNode) {
+            return new static($node);
+        }
+
+        return null;
     }
 
     /**

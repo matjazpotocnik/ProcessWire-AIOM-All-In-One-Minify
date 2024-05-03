@@ -704,6 +704,8 @@ class HtmlMin implements HtmlMinInterface
                     )
                 ) {
                     $attr_val = \preg_replace(self::$regExSpace, ' ', $attribute->value);
+                    //MP https://github.com/voku/HtmlMin/pull/88/commits/06bae81518071e55f1d0c5199c18a9152f0cde30
+                    $attr_val = \trim($attr_val);
                 } else {
                     $attr_val = $attribute->value;
                 }
@@ -1714,9 +1716,10 @@ class HtmlMin implements HtmlMinInterface
                 continue;
             }
 
-            $this->protectedChildNodes[$this->protected_tags_counter] = $element->parentNode()->innerHtml();
-            $parentNode = $element->getNode()->parentNode;
-            if ($parentNode !== null) {
+            //MP https://github.com/voku/HtmlMin/pull/100/commits/f0d9be3d494f3beb6100d1b86303989c4f89d9e7
+            $parentNode = $element->parentNode();
+            if ($parentNode->nodeValue !== null) {
+                $this->protectedChildNodes[$this->protected_tags_counter] = $parentNode->innerHtml();
                 $parentNode->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $this->protected_tags_counter . '"></' . $this->protectedChildNodesHelper . '>';
             }
 

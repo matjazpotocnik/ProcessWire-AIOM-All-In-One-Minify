@@ -84,6 +84,8 @@ class HtmlDomParser extends AbstractDomParser
      */
     protected $specialScriptTags = [
         'text/html',
+        'text/template',
+        //MP https://github.com/voku/simple_html_dom/pull/104/commits/ce6bccb9e9aaf32a4c166688c3f09dbb81eaaead
         'text/x-custom-template',
         'text/x-handlebars-template',
     ];
