@@ -65,7 +65,8 @@ final class HtmlDomHelper
         }
 
         foreach ($attributes as $attributeName => $attributeValue) {
-            $domElement->setAttribute($attributeName, $attributeValue);
+            //MP https://github.com/voku/simple_html_dom/commit/0a5d469856555d03b6cf408ec596936229362455
+            $domElement->setAttribute($attributeName, $attributeValue, true);
         }
 
         return $domElement->html();
