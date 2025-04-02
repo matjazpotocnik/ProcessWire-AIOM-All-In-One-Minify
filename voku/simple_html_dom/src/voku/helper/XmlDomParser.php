@@ -635,7 +635,7 @@ class XmlDomParser extends AbstractDomParser
      *
      * @return void
      */
-    public function replaceTextWithCallback($callback, \DOMNode $domNode = null)
+    public function replaceTextWithCallback($callback, ?\DOMNode $domNode = null)
     {
         if ($domNode === null) {
             $domNode = $this->document;

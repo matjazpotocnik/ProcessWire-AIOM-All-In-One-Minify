@@ -10,7 +10,7 @@
  * @licence
  * Copyright (c) 2013 FlipZoom Media Inc. - David Karich
  * Copyright (c) 2014 Conclurer GbR
- * Copyright (c) 2021-2023 Matjaz Potocnik
+ * Copyright (c) 2021- Matjaz Potocnik
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -35,7 +35,7 @@
  * see CHANGELOG.md
  * ----------------------------------------------------------------------------------
  */
-
+// @codingStandardsIgnoreLine
 class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 	public const cacheDir  = 'aiom'; // name of the cache folders
@@ -54,7 +54,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return [
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.5',
+			'version' => '4.0.6',
 			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
 			'summary' => __('AIOM+ (All In One Minify) is a module to improve the performance of your website. Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding). Even more: AIOM+ can enhance builtin template caching and noticeable speed up your site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
@@ -126,9 +126,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$paths = wire()->config->paths;
 
 		self::$configData = $this->_sanitize_data($modules->getModuleConfigData($this));
-		self::$assetsCacheDir = $paths->assets . self::cacheDir . '/';           // C:/inetpub/wwwroot/site/assets/aiom/
-		self::$aiomCacheDir =   $paths->cache  . self::cacheDir . '/';           // C:/inetpub/wwwroot/site/assets/cache/aiom/
-		self::$pagesCacheDir =  $paths->cache  . PageRender::cacheDirName . '/'; // C:/inetpub/wwwroot/site/assets/cache/Page/
+		self::$assetsCacheDir = $paths->assets . self::cacheDir . '/';           // /site/assets/aiom/
+		self::$aiomCacheDir =   $paths->cache  . self::cacheDir . '/';           // /site/assets/cache/aiom/
+		self::$pagesCacheDir =  $paths->cache  . PageRender::cacheDirName . '/'; // /site/assets/cache/Page/
 
 	}
 
@@ -271,7 +271,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		$field = $this->modules->get('InputfieldTextarea');
 		$field->attr('name', 'template_files');
-		$field->label = 'Aditional cache clear options';
+		$field->label = 'Additional cache clear options';
 		$field->rows = 3;
 		$field->columnWidth = 34;
 		$field->description = __('This option lets you specify files that are checked against template cache files. ') .
@@ -357,7 +357,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$field->description = __('There are no templates with enabled caching.');
 		} else {
 			$field->value       = $table->render();
-			$field->description = __('This is a list of templates with enabled caching. Click on the template name to change cache settings.');
+			$field->description = __('This is a list of templates with enabled caching. Click on the template name to change the cache settings.');
 		}
 		$field->notes = __('Set the caching options for other templates in [Templates Setup](../setup/template/).');
 		$fieldset->add($field);
@@ -424,7 +424,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->columnWidth = 33;
 		$field->value       = $data['development_mode'];
 		$field->checked     = ($field->value == 1) ? 'checked' : '';
-		$field->description = __('Enable development mode to prevent browser caching and not to minimize HTML source code or CSS/JS files.');
+		$field->description = __('Enable development mode to prevent browser caching and not minimize HTML source code or CSS/JS files.');
 		$fieldset->add($field);
 
 		$field              = $modules->get('InputfieldCheckbox');
@@ -440,7 +440,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field              = $modules->get('InputfieldMarkup');
 		$field->columnWidth = 33;
 		$field->label       = __('Cache control');
-		$field->description = __('Here you can delete minimized JS and CSS files. Note: this will also empty template cache!').'<br><br>';
+		$field->description = __('Here you can delete minimized JS and CSS files. Note: this will also empty the template cache!').'<br><br>';
 		$field->entityEncodeText = false;
 		$field->value = sprintf(__('Cached files: %s | Used space: %s'), $_cacheInfo['numberOfFiles'], $_cacheInfo['bytesTotal']);
 
@@ -457,7 +457,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->label       = __('Domain sharding');
 		$field->columnWidth = 50;
 		$field->value       = $data['domain_sharding'];
-		$field->description = __('In order to speed up the download of stylesheets and javascripts, this can be made available via a second subdomain (parallel download and Cookieless domain). The second subdomain (eg. static.mysite.com) must also point to the web root directory of ProcessWire. Leave the field blank to disable this option.');
+		$field->description = __('To speed up the download of stylesheets and javascripts, this can be made available via a second subdomain (parallel download and Cookieless domain). The second subdomain (e.g., static.mysite.com) must also point to the web root directory of ProcessWire. Leave the field blank to disable this option.');
 		$fieldset->add($field);
 
 		$field              = $modules->get('InputfieldText');
@@ -466,7 +466,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->columnWidth = 50;
 		//$field->attr(['placeholder' => 'https://static.mysite.com']);
 		$field->value       = $data['domain_sharding_ssl'];
-		$field->description = __('In order to speed up the download of stylesheets and javascripts, this can be made available via a second subdomain (parallel download and Cookieless domain). The second subdomain (eg. static.mysite.com) must also point to the web root directory of ProcessWire. Leave the field blank to disable this option.');
+		$field->description = __('To speed up the download of stylesheets and javascripts, this can be made available via a second subdomain (parallel download and Cookieless domain). The second subdomain (e.g., static.mysite.com) must also point to the web root directory of ProcessWire. Leave the field blank to disable this option.');
 		$fieldset->add($field);
 
 		$wrapper->add($fieldset);
@@ -1556,7 +1556,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		$dir = self::_getAiomCacheDir($page);
 		$cacheFile = self::_getCacheFile($page);
-		$file = $dir . 'cache.json'; // C:/inetpub/wwwroot/site/assets/cache/aiom/one/page10/cache.json
+		$file = $dir . 'cache.json'; // /site/assets/cache/aiom/one/page10/cache.json
 
 		// convert array to json object and write to cache file
 		$json = json_encode($cacheFile, JSON_FORCE_OBJECT);
@@ -1649,11 +1649,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$tplFiles = self::_getTemplateFiles($page);
 
 		$return = [];
-		$return[] = $cacheFile;       //eg. C:/inetpub/wwwroot/site/assets/cache/Page/1/page2_1234.cache
+		$return[] = $cacheFile;       //eg. /site/assets/cache/Page/1/page2_1234.cache
 		$return[] = $cacheTime;       //eg. 3600
 		$return[] = $cacheExpireTime; //eg. 1583141543
 		$return[] = $cacheExpireDate; //eg. 2020-02-20 21:57:03
-		$return[] = $tplFiles;        //eg. C:/inetpub/wwwroot/site/templates/basic-page.php
+		$return[] = $tplFiles;        //eg. /site/templates/basic-page.php
 
 		return $return;
 	}
