@@ -3,28 +3,31 @@
 #### Simple caching solution with minifying and parsing for CSS, LESS, JS and HTML ####
 -----------------------------
 
-AIOM+ (All In One Minify) is a ProcessWire module to improve the performance of your website.
-By a simple function call Style sheets, LESS and JavaScript files can be parsed, minimized and
-combined into single file. This reduces the server requests, loading time and reduces the
-traffic. Besides, the generated HTML source code, Style sheets and JavaScript files can be minimized
-automatically (without any programming). Even more: AIOM+ can enhance ProcessWire's builtin template
-caching and **noticeable** speed up your site.
+AIOM+ (All In One Minify) is a ProcessWire module that improves the performance of your website.
+Style sheets, LESS, and JavaScript files can be parsed, minimized, and combined into a single file 
+by a simple function call. This reduces the server requests, loading time, and reduces traffic. 
+Besides, the generated HTML source code, Style sheets, and JavaScript files can be minimized
+automatically (without any programming). Even more: AIOM+ can enhance ProcessWire's built-in template
+caching and **noticeably** speed up your site.
 
 **NOTE**: This forked version includes several pull requests, fixes and modifications from the
 unmaintained [original AIOM+](https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify). See the
 CHANGELOG.md or sources for more info. Also, from version 4.0.0 AIOM+ template caching is added by me.
 
-**NOTE:** Minimizing process, especially in automatic mode, can actually increase the page rendering time!
+**NOTE:** Minimizing process, especially in automatic mode, can actually increase page rendering time!
+Years ago, minimizing offered a fine improvement for some websites, but browsers and HTTP servers are 
+now much better, and minifying assets may offer only a marginal performance benefit in narrow cases. 
+Also, both JS and CSS change rapidly, and new syntaxes will likely to lead to broken code.
 I recommend that you minimize your assets in advance, then set up template caching and enable
 AIOM+ caching. Or use a commercial product [ProCache](https://processwire.com/store/pro-cache/).
 
-**NOTE:** If you implement manual minimizing of CSS/LESS/JS files (by calling API function in your template 
+**WARNING:** If you implement manual minimizing of CSS/LESS/JS files (by calling API function in your template 
 file) and you uninstall this module, your site will stop working! I don't use LESS or Domain sharding, so
 I never tested it.
 
 - - -
 
-** Information **
+**Information**
 
 * All paths are relative to the template folder. URLs in css files will be automatically corrected. Nothing needs to be changed. 
 * If you make changes to the source stylesheet, LESS or javascript files, a new parsed and combined version is created automatically. 

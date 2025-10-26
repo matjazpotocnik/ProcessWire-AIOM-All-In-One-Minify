@@ -54,7 +54,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return [
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.6',
+			'version' => '4.0.7',
 			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
 			'summary' => __('AIOM+ (All In One Minify) is a module to improve the performance of your website. Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding). Even more: AIOM+ can enhance builtin template caching and noticeable speed up your site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
@@ -559,7 +559,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if($input->get('cache') == 'clear' AND $page->template->name === 'admin') self::ClearAssetsCacheFromBackend();
 		if($input->get('pagecache') == 'clear' AND $page->template->name === 'admin') self::ClearAiomCacheFromBackend();
 
-		//js needed only if using wiretaabs with custom wiretabid
+		//js needed only if using WireTabs with custom wiretabid
 		//$config->scripts->add($config->urls->siteModules . __CLASS__ . '/' . __CLASS__ . '.js');//?v=' . time());
 		$config->styles->add($config->urls->siteModules . __CLASS__ . '/' . __CLASS__ . '.css');//?v=' . time());
 
@@ -1213,7 +1213,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			if(!is_dir($path)) {
 				yield $path;
 			} else {
-				yield from self::getDirContents($path);
+				yield from self::_getDirContents($path);
 				//yield $path; //skip directories
 			}
 		}
@@ -1228,7 +1228,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
             $results[] = $path;
         }
         else if($value != "." && $value != "..") {
-            getDirContents($path, $results);
+            _getDirContents($path, $results);
             if(is_dir($path) == false) {
                 $results[] = $path;
             }
@@ -1253,6 +1253,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		$numRemoved = self::_clearAssetsCache(true);
 		wire()->message(sprintf(__("Deleted %s cache files."), $numRemoved));
+		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache files."), $numRemoved)));
 
 		// Redirect to module configuration.
 		$url = wire()->page->httpUrl . 'edit?name=' . wire()->input->get('name') . '&collapse_info=1';
@@ -1261,7 +1262,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Empty /site/assets/cache/aiom/ (site structure with cache.json files)
-	 * if you click Clear Cache button in Caching tab
+	 * when you click "Empty cache" button in Caching tab
 	 * url: &pagecache=clear
 	 */
 	protected static function ClearAiomCacheFromBackend() {
@@ -1270,6 +1271,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		//delete pages cache too?
 		$numRemoved = $numRemoved + self::_clearPagesCache();
 		wire()->message(sprintf(__("Deleted %s cache files in total."), $numRemoved));
+		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache files in total."), $numRemoved)));
 
 		// Redirect to module configuration.
 		$url = wire()->page->httpUrl . 'edit?name=' . wire()->input->get('name') . '&collapse_info=1';
@@ -1277,7 +1279,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Check if the current template requires SSL a
+	 * Check if the current template requires SSL
 	 *
 	 * @param [type] $event
 	 */
@@ -1397,7 +1399,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	private function _sanitizeNumericCacheTime($value) {
 		$value = intval($value);
 		if(!is_int($value) || $value < self::min_cache_lifetime || $value > self::max_cache_lifetime) {
-			$this->warning(sprintf(__("Invalid cache lifetime %s, the default value of %s will be used."), $value, self::default_cache_lifetime));
+			wire()->warning(sprintf(__("Invalid cache lifetime %s, the default value of %s will be used."), $value, self::default_cache_lifetime));
 			$value = self::default_cache_lifetime;
 		}
 		return $value;

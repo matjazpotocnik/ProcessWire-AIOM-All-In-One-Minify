@@ -1,5 +1,11 @@
 ## Changelog ##
 
+4.0.7
+- Updated readme, fixed a typo in _getDirContents()
+
+4.0.6
+- Support for PHP 8.4 & some typos (Matjaž Potočnik)
+
 4.0.5
 - Added support for config/template prepend/append file in caching (Matjaž Potočnik)
 - Fixed PHP 8.3 issue in less parser (Matjaž Potočnik)
