@@ -11,8 +11,10 @@ automatically (without any programming). Even more: AIOM+ can enhance ProcessWir
 caching and **noticeably** speed up your site.
 
 **NOTE**: This forked version includes several pull requests, fixes and modifications from the
-unmaintained [original AIOM+](https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify). See the
-CHANGELOG.md or sources for more info. Also, from version 4.0.0 AIOM+ template caching is added by me.
+unmaintained [original AIOM+](https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify) 
+created by [David Karich](https://processwire.com/modules/author/david-karich/) @ [flipzoom.de](https://www.flipzoom.de/). 
+Template caching (from version 4.0.0) is developed by [me](https://processwire.com/modules/author/matjazp/).
+See the CHANGELOG.md or sources for more info. 
 
 **NOTE:** Minimizing process, especially in automatic mode, can actually increase page rendering time!
 Years ago, minimizing offered a fine improvement for some websites, but browsers and HTTP servers are 
@@ -22,8 +24,8 @@ I recommend that you minimize your assets in advance, then set up template cachi
 AIOM+ caching. Or use a commercial product [ProCache](https://processwire.com/store/pro-cache/).
 
 **WARNING:** If you implement manual minimizing of CSS/LESS/JS files (by calling API function in your template 
-file) and you uninstall this module, your site will stop working! I don't use LESS or Domain sharding, so
-I never tested it.
+files) and you uninstall this module, your site will stop working! I don't use LESS or Domain sharding, so
+I never tested it. The version of LESS shipped with this module is very old and might break with the new versions of PHP.
 
 - - -
 
