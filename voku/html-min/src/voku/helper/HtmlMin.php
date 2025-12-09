@@ -349,7 +349,8 @@ class HtmlMin implements HtmlMinInterface
      */
     public function attachObserverToTheDomLoop(HtmlMinDomObserverInterface $observer)
     {
-        $this->domLoopObservers->attach($observer);
+        //MP https://github.com/voku/HtmlMin/pull/110/files
+        $this->domLoopObservers[$observer] = $observer;
     }
 
     /**
@@ -1718,7 +1719,8 @@ class HtmlMin implements HtmlMinInterface
 
             //MP https://github.com/voku/HtmlMin/pull/100/commits/f0d9be3d494f3beb6100d1b86303989c4f89d9e7
             $parentNode = $element->parentNode();
-            if ($parentNode->nodeValue !== null) {
+            //MP https://github.com/voku/HtmlMin/pull/110/files
+            if (!is_null($parentNode) && $parentNode->nodeValue !== null) {
                 $this->protectedChildNodes[$this->protected_tags_counter] = $parentNode->innerHtml();
                 $parentNode->nodeValue = '<' . $this->protectedChildNodesHelper . ' data-' . $this->protectedChildNodesHelper . '="' . $this->protected_tags_counter . '"></' . $this->protectedChildNodesHelper . '>';
             }
