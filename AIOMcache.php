@@ -16,8 +16,13 @@
 
 class AIOMcache
 {
+    /** @var string */
     private static $rootPath;
+
+    /** @var string */
     private static $aiomCachePath;
+
+    /** @var string */
     private static $logFile;
 
     /**
@@ -33,48 +38,52 @@ class AIOMcache
         self::$aiomCachePath = self::$rootPath . '/site/assets/cache/aiom/';
         self::$logFile = self::$rootPath . '/site/assets/logs/aiom.txt';
 
-        //return if not a guest or is POST request or GET request has query string or caching not enabled
+        $query_string = self::toString($_SERVER['QUERY_STRING']);
+
+        //return if not a guest or is POST request or GET request has '&' or 'processwire' or caching not enabled
         if (
             isset($_COOKIE['wire_challenge']) || isset($_COOKIE['wires_challenge']) ||
             (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') ||
-            (isset($_SERVER['QUERY_STRING']) && strpos($_SERVER['QUERY_STRING'], '&') !== false) ||
+            (isset($_SERVER['QUERY_STRING']) && (strpos($query_string, '&') !== false || strpos($query_string, 'it=processwire') !==false)) ||
                 !is_file(self::$aiomCachePath . 'aiom.enabled')
         ) {
                 //self::log('cache INFO: condition not met ' . $_SERVER['QUERY_STRING']);
                 return false;
         }
 
-        //$it = isset($_GET['it']) ? $_GET['it'] : '';
-        $it = $_GET['it'] ?? ''; //rector
+        $it = self::toString($_GET['it']);
+        //$it = $_GET['it'] ?? '';
         $it = trim($it, '/') . '/';
         if ($it === '/') $it = '';
 
         $aiomCacheFile = self::$aiomCachePath . $it . 'cache.json';
 
-        //some general logging
-        //self::log("cache INFO: it: $it, queryString: " . $_SERVER['QUERY_STRING']);
+        //some general logging, uncomment only for debugging
+        //self::log("cache INFO: it: $it, queryString: " . $query_string']);
 
         //check if AIOM cache file exist
+        //this also serve as a way to "sanitize" $it
         if (!is_file($aiomCacheFile) || !is_readable($aiomCacheFile)) {
             //self::log("cache MISS: /$it no cache file $aiomCacheFile");
             return false;
         }
 
         //AIOM cache file exists, open it and get "real" Page cache file, cache time and template files
-        //todo: use json
-        $aiomCacheFileContent = file_get_contents($aiomCacheFile);
-        $aiomCacheFileContentArr = json_decode($aiomCacheFileContent, true);
-        if (json_last_error() !== JSON_ERROR_NONE || count($aiomCacheFileContentArr) < 4) {
+        $aiomCacheFileContent = (string) file_get_contents($aiomCacheFile);
+        $aiomCacheFileArr = json_decode($aiomCacheFileContent, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($aiomCacheFileArr) || count($aiomCacheFileArr) < 4) {
             self::log("cache ERROR: invalid format of $aiomCacheFile");
             self::removeCacheFile($aiomCacheFile);
             return false;
         }
 
-        $pageCacheFile = $aiomCacheFileContentArr[0];       //eg. /site/assets/cache/Page/1/page2_1234.cache
-        $pageCacheTime = $aiomCacheFileContentArr[1];       //eg. 3600 - not used
-        $pageCacheExpireTime = $aiomCacheFileContentArr[2]; //eg. 1583141543
-        $pageCacheExpireDate = $aiomCacheFileContentArr[3]; //eg. 2020-02-20 21:57:03 - not used
-        $tplFiles = count($aiomCacheFileContentArr) > 4 ? $aiomCacheFileContentArr[4] : []; //eg. /site/templates/basic-page.php
+        /** @var list<mixed> $aiomCacheFileArr */
+        $pageCacheFile = self::toString($aiomCacheFileArr[0]);       //eg. /site/assets/cache/Page/1/page2_1234.cache
+        $pageCacheTime = $aiomCacheFileArr[1];       //eg. 3600 - not used
+        $pageCacheExpireTime = $aiomCacheFileArr[2]; //eg. 1583141543
+        $pageCacheExpireDate = $aiomCacheFileArr[3]; //eg. 2020-02-20 21:57:03 - not used
+        //$tplFiles = count($aiomCacheFileArr) > 4 ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
+        $tplFiles = isset($aiomCacheFileArr[4]) && is_array($aiomCacheFileArr[4]) ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
 
         //self::log("cache INFO: cacheTime: $pageCacheTime, cacheExpireTime: $pageCacheExpireTime, cacheExpireDate: $pageCacheExpireDate");
 
@@ -88,6 +97,7 @@ class AIOMcache
         //check if one of the template files is newer than page cachefile
         $pageCacheExpireFilemtime = @filemtime($pageCacheFile);
         foreach ($tplFiles as $tplFile) {
+            $tplFile = self::toString($tplFile);
             //self::log("cache INFO: checking $tplFile, " . date("Y-m-d H:i:s", @filemtime($tplFile)));
             if (is_file($tplFile) && filemtime($tplFile) > $pageCacheExpireFilemtime) {
                 //template file is newer than cachefile, invalidate (remove) cache files for the page
@@ -108,9 +118,16 @@ class AIOMcache
         }
 
         //we have a content, serve it
-        $len = @mb_strlen($out, 'utf8');
+        $len = @mb_strlen($out, 'UTF-8');
         self::rewrite($out);
         //self::log("cache HIT: /$it serving $pageCacheFile ($len bytes)");
+
+        header('X-AIOM-Cache: HIT');
+        /*
+        if ($pageCacheExpireFilemtime > 0) {
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $pageCacheExpireFilemtime) . ' GMT');
+        }
+        */
         echo $out;
         exit(0);
     }
@@ -120,33 +137,30 @@ class AIOMcache
      * Taken from /wire/core/ProcessWire.php
      *
      * @author Ryan Cramer, modified by Matjaž Potočnik
-     * @param bool|string $rootPath Root path if already known, in which case we’ll just modify as needed
-     *   …or specify boolean true to get absolute root path, which disregards any symbolic links to core.
      * @return string
      *
      */
-    private static function getRootPath($rootPath = '')
+    private static function getRootPath()
     {
-        if ($rootPath !== true && strpos($rootPath, '..') !== false) {
-            $rootPath = realpath($rootPath);
-        }
+        $rootPath = realpath('');
 
         if (empty($rootPath) && !empty($_SERVER['SCRIPT_FILENAME'])) {
             // first try to determine from the script filename
-            $parts = explode(DIRECTORY_SEPARATOR, (string) $_SERVER['SCRIPT_FILENAME']);
+            $script_filename = self::toString($_SERVER['SCRIPT_FILENAME']);
+            $parts = explode(DIRECTORY_SEPARATOR, $script_filename);
             array_pop($parts); // most likely: index.php
             $rootPath = implode('/', $parts) . '/';
             if (!file_exists($rootPath . 'wire/core/ProcessWire.php')) $rootPath = '';
         }
 
-        if (empty($rootPath) || $rootPath === true) {
+        if (!$rootPath) {
             // if unable to determine from script filename, attempt to determine from current file
             $parts = explode(DIRECTORY_SEPARATOR, __FILE__);
             $parts = array_slice($parts, 0, -3); // removes "ProcessWire.php", "core" and "wire"
             $rootPath = implode('/', $parts);
         }
 
-        if (DIRECTORY_SEPARATOR != '/') {
+        if (DIRECTORY_SEPARATOR !== '/') {
             $rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
         }
 
@@ -162,6 +176,7 @@ class AIOMcache
      * @param string $line
      * @param string $chunk
      * @param int $chunkSize
+     * @return void
      * @since 3.0.143
      *
      */
@@ -207,7 +222,7 @@ class AIOMcache
      *
      * @author Ryan Cramer, modified by Matjaž Potočnik
      * @param string $str
-     * @param array $options options to modify behavior (Added 3.0.143)
+     * @param array<string, int|bool> $options options to modify behavior (Added 3.0.143)
      *  - `allowDups` (bool): Allow duplicating same log entry in same runtime/request? (default=true)
      *  - `mergeDups` (int): Merge previous duplicate entries that also appear near end of file?
      *     To enable, specify int for quantity of bytes to consider from EOF, value of 1024 or higher (default=0, disabled)
@@ -231,7 +246,7 @@ class AIOMcache
         ];
         $delimeter = "\t";
 
-        if (!$logFile) return;
+        if (!$logFile) return false;
 
         $options = array_merge($defaults, $options);
         //$hash = md5($str);
@@ -249,22 +264,24 @@ class AIOMcache
         if ($mode === 'a' && $options['mergeDups']) $mode = 'r+';
 
         // open the log file
-        for ($tries = 0; $tries <= $options['maxTries']; $tries++) {
+        $maxTriesDelay = (int) $options['maxTriesDelay'];
+        $maxTries = (int) $options['maxTries'];
+        for ($tries = 0; $tries <= $maxTries; $tries++) {
             $fp = fopen($logFile, $mode);
             if ($fp) break;
             // if unable to open for reading/writing, see if we can open for append instead
-            if ($mode === 'r+' && $tries > ($options['maxTries'] / 2)) $mode = 'a';
-            usleep($options['maxTriesDelay']);
+            if ($mode === 'r+' && $tries > ($maxTries / 2)) $mode = 'a';
+            usleep($maxTriesDelay);
         }
 
         // if unable to open, exit now
         if (!$fp) return false;
 
         // obtain a lock
-        for ($tries = 0; $tries <= $options['maxTries']; $tries++) {
+        for ($tries = 0; $tries <= $maxTries; $tries++) {
             $hasLock = flock($fp, LOCK_EX);
             if ($hasLock) break;
-            usleep($options['maxTriesDelay']);
+            usleep($maxTriesDelay);
         }
 
         // if unable to obtain a lock, we cannot write to the log
@@ -280,6 +297,7 @@ class AIOMcache
             if ($chunkSize < 1024) $chunkSize = 1024;
             fseek($fp, -1 * $chunkSize, SEEK_END);
             $chunk = fread($fp, $chunkSize);
+            $chunk = $chunk === false ? '' : $chunk;
             // check if our log line already appears in the immediate earlier chunk
             if (strpos($chunk, $line) !== false) {
                 // this log entry already appears 1+ times within the last chunk of the file
@@ -289,6 +307,7 @@ class AIOMcache
                 fseek($fp, 0, SEEK_END);
                 $oldLength = ftell($fp);
                 $newLength = $chunkLength > $oldLength ? $oldLength - $chunkLength : 0;
+                $newLength = max(0, $oldLength - $chunkLength);
                 ftruncate($fp, $newLength);
                 fseek($fp, 0, SEEK_END);
                 fwrite($fp, (string) $chunk);
@@ -308,7 +327,7 @@ class AIOMcache
 
         // if we were creating the file, make sure it has the right permission
         if ($mode === 'w') {
-            @chmod($logFile, octdec('0644')); //MP
+            @chmod($logFile, 0644); //MP
             //$files = $this->wire('files'); /** @var WireFileTools $files */
             //$files->chmod($logFile);
         }
@@ -320,7 +339,8 @@ class AIOMcache
      * Add an attribute to the body tag and comment at the end of the HTML
      *
      * @author Matjaž Potočnik
-     * @param string &$html
+     * @param string $html HTML content (modified by reference)
+     * @return bool True if HTML was modified, false otherwise.
      *
      */
     private static function rewrite(&$html)
@@ -330,7 +350,7 @@ class AIOMcache
         $changed = false;
         $c = "<!--AIOM-->";
         if (stripos($html, $c) === false) {
-            if (stripos($html, '</html>')) {
+            if (stripos($html, '</html>') !== false) {
                 $html = str_ireplace("</html>", "</html>$c", $html);
             } else {
                 $html .= $c;
@@ -341,7 +361,7 @@ class AIOMcache
         // add an attribute to the body tag
         $c = "data-cache='AIOM'";
         if (stripos($html, $c) === false) {
-            if (stripos($html, '<body>')) {
+            if (stripos($html, '<body>') !== false) {
                 $html = str_ireplace("<body>", "<body $c>", $html);
             } elseif (stripos($html, '<body ')) {
                 $html = str_ireplace("<body ", "<body $c ", $html);
@@ -353,11 +373,26 @@ class AIOMcache
     }
 
     /**
+     * Returns the given value as a string, or an empty string if it is not a string.
+     *
+     * This utility ensures safe string usage in contexts where PHPStan would
+     * otherwise complain about mixed types (e.g., when handling superglobals,
+     * json decoded values, or filesystem reads).
+     *
+     * @param mixed $var The value to convert to string if possible.
+     * @return string The original string or an empty string if not a string.
+     */
+    private static function toString($var) {
+        return is_string($var) ? $var : '';
+    }
+
+    /**
      * Remove cached aiom file
      *
      * @author Matjaž Potočnik
      * @param string $file aiom cache file to remove
      * @param bool $delFolder indicator to remove the parent folder
+     * @return void
      *
      */
     private static function removeCacheFile($file, $delFolder = false)
@@ -386,13 +421,13 @@ class AIOMcache
                 //directory is empty
                 $ret = @rmdir($dir);
                 if ($ret) {
-                    //self::log("cache MISS: /$it cache file expired, $dir deleted");
+                    //self::log("cache MISS: cache file expired, $dir deleted");
                 } else {
-                    self::log("cache ERROR: /$it cache file expired, $dir delete failed");
+                    self::log("cache ERROR: cache file expired, $dir delete failed");
                 }
             }
         }
     }
 }
 
-AIOMCache::cache();
+AIOMcache::cache();

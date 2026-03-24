@@ -9,6 +9,7 @@ require_once( dirname(__FILE__).'/Cache.php');
  * @subpackage parser
  *
  */
+#[AllowDynamicProperties]
 class Less_Parser{
 
 
@@ -1658,7 +1659,9 @@ class Less_Parser{
 
         $this->expectChar(']');
 
-        return $this->NewObj3('Less_Tree_Attribute',array( $key, $op[0], $val));
+        $opp = $op == null ? null : $op[0]; //MP
+        return $this->NewObj3('Less_Tree_Attribute',array( $key, $opp, $val));
+        //return $this->NewObj3('Less_Tree_Attribute',array( $key, $op[0], $val));
     }
 
     //
@@ -5203,7 +5206,8 @@ class Less_Tree_Directive extends Less_Tree{
     public $debugInfo;
     public $type = 'Directive';
 
-    public function __construct($name, $value = null, $rules, $index = null, $currentFileInfo = null, $debugInfo = null ){
+    //public function __construct($name, $value = null, $rules, $index = null, $currentFileInfo = null, $debugInfo = null ){
+    public function __construct($name, $value, $rules, $index, $currentFileInfo, $debugInfo ){
         $this->name = $name;
         $this->value = $value;
         if( $rules ){
@@ -9233,7 +9237,8 @@ class Less_Exception_Parser extends Exception{
      * @param Less_FileInfo|string $currentFile The file
      * @param integer $code The exception code
      */
-    public function __construct($message = null, Exception $previous = null, $index = null, $currentFile = null, $code = 0){
+    //public function __construct($message = null, Exception $previous = null, $index = null, $currentFile = null, $code = 0){
+    public function __construct($message = null, $previous = null, $index = null, $currentFile = null, $code = 0){
 
         if (PHP_VERSION_ID < 50300) {
             $this->previous = $previous;
@@ -9342,7 +9347,8 @@ class Less_Exception_Chunk extends Less_Exception_Parser{
      * @param Less_FileInfo|string $currentFile The file
      * @param integer $code The exception code
      */
-    public function __construct($input, Exception $previous = null, $index = null, $currentFile = null, $code = 0){
+    //public function __construct($input, Exception $previous = null, $index = null, $currentFile = null, $code = 0){
+    public function __construct($input, $previous = null, $index = null, $currentFile = null, $code = 0){
 
         $this->message = 'ParseError: Unexpected input'; //default message
 

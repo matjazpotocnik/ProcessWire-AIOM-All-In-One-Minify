@@ -1,8 +1,11 @@
-precitajme*!!!.txt
+tests.txt
+enhancements.php
 simple_css_min.php
 readme.html
 rector.*
 phpcs.*
+phpstan*.*
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

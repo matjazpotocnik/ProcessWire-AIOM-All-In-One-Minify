@@ -20,7 +20,13 @@
  * by Yahoo! Inc. under the BSD (revised) open source license.
  */
 
+/*!
+ * https://github.com/tubalmartin/YUI-CSS-compressor-PHP-port/pull/50
+*/
+
 namespace tubalmartin\CssMin;
+
+use InvalidArgumentException;
 
 class Minifier
 {
@@ -29,28 +35,30 @@ class Minifier
     const COMMENT_TOKEN_START = '_CSSMIN_CMT_';
     const RULE_BODY_TOKEN = '_CSSMIN_RBT_%d_';
     const PRESERVED_TOKEN = '_CSSMIN_PTK_%d_';
-    
+    const UNQUOTED_FONT_TOKEN = '_CSSMIN_UFT_%d_';
+
     // Token lists
     private $comments = array();
     private $ruleBodies = array();
     private $preservedTokens = array();
-    
+    private $unquotedFontTokens = array();
+
     // Output options
     private $keepImportantComments = true;
     private $keepSourceMapComment = false;
     private $linebreakPosition = 0;
-    
+
     // PHP ini limits
     private $raisePhpLimits;
     private $memoryLimit;
     private $maxExecutionTime = 60; // 1 min
     private $pcreBacktrackLimit;
     private $pcreRecursionLimit;
-    
+
     // Color maps
     private $hexToNamedColorsMap;
     private $namedToHexColorsMap;
-    
+
     // Regexes
     private $numRegex;
     private $charsetRegex = '/@charset [^;]+;/Si';
@@ -62,6 +70,7 @@ class Minifier
     private $shortenThreeZeroesRegex;
     private $shortenFourZeroesRegex;
     private $unitsGroupRegex = '(?:ch|cm|em|ex|gd|in|mm|px|pt|pc|q|rem|vh|vmax|vmin|vw|%)';
+    private $unquotedFontsRegex = '/(font-family:|font:)([^ \'"]+?)[^}]*/Si';
 
     /**
      * @param bool|int $raisePhpLimits If true, PHP settings will be raised if needed
@@ -287,6 +296,17 @@ class Minifier
         return $tokenId;
     }
 
+    private function registerUnquotedFontToken($body)
+    {
+        if (empty($body)) {
+            return '';
+        }
+
+        $tokenId = sprintf(self::UNQUOTED_FONT_TOKEN, count($this->unquotedFontTokens));
+        $this->unquotedFontTokens[$tokenId] = $body;
+        return $tokenId;
+    }
+
     /**
      * Parses & minifies the given input CSS string
      * @param string $css
@@ -296,6 +316,9 @@ class Minifier
     {
         // Process data urls
         $css = $this->processDataUrls($css);
+
+        //MP Preserve calc() blocks
+        $css = $this->processCalcFunctions($css);
 
         // Process comments
         $css = preg_replace_callback(
@@ -335,13 +358,13 @@ class Minifier
             array($this, 'processImportUnquotedUrlAtRulesCallback'),
             $css
         );
-        
+
         // Process comments
         $css = $this->processComments($css);
-        
+
         // Process rule bodies
         $css = $this->processRuleBodies($css);
-        
+
         // Process at-rules and selectors
         $css = $this->processAtRulesAndSelectors($css);
 
@@ -355,6 +378,20 @@ class Minifier
         $css = strtr($css, $this->preservedTokens);
 
         return trim($css);
+    }
+
+    //MP
+    /**
+     * Preserve calc() contents to avoid minifying inside it.
+     */
+    private function processCalcFunctions($css) {
+        return preg_replace_callback(
+            '/calc(\s*\((?:[^()]+|(?1))*\))/i',
+            function ($m) {
+                return $this->registerPreservedToken($m[0]);
+            },
+            $css
+        );
     }
 
     /**
@@ -376,7 +413,7 @@ class Minifier
             $searchOffset = $matchStartIndex + strlen($m[0][0]);
             $terminator = $m[1][0]; // ', " or empty (not quoted)
             $terminatorRegex = '/(?<!\\\\)'. (strlen($terminator) === 0 ? '' : $terminator.'\s*') .'(\))/S';
-            
+
             $ret .= substr($css, $substrOffset, $matchStartIndex - $substrOffset);
 
             // Terminator found
@@ -387,8 +424,9 @@ class Minifier
 
                 // Remove all spaces only for base64 encoded URLs.
                 if (stripos($token, 'base64,') !== false) {
-                		//https://github.com/Cyperghost/YUI-CSS-compressor-PHP-port/commit/76ad4092ef99533bc6968de5beab34a1100e388d
+                    //https://github.com/Cyperghost/YUI-CSS-compressor-PHP-port/commit/76ad4092ef99533bc6968de5beab34a1100e388d
                     $token = preg_replace('/\s+/S', ' ', $token);
+                    //$token = preg_replace('/\s+/S', '', $token);
                 }
 
                 $ret .= 'url('. $this->registerPreservedToken(trim($token)) .')';
@@ -468,7 +506,7 @@ class Minifier
     {
         foreach ($this->comments as $commentId => $comment) {
             $commentIdString = '/*'. $commentId .'*/';
-            
+
             // ! in the first position of the comment means preserve
             // so push to the preserved tokens keeping the !
             if ($this->keepImportantComments && strpos($comment, '!') === 0) {
@@ -507,6 +545,7 @@ class Minifier
     /**
      * Finds, minifies & preserves all rule bodies.
      * @param string $css the whole stylesheet.
+     * @throws InvalidArgumentException if $css contains an unclosed block
      * @return string
      */
     private function processRuleBodies($css)
@@ -516,6 +555,9 @@ class Minifier
 
         while (($blockStartPos = strpos($css, '{', $searchOffset)) !== false) {
             $blockEndPos = strpos($css, '}', $blockStartPos);
+            if ($blockEndPos === false) {
+                throw new InvalidArgumentException("No end to CSS block starting at offset $blockStartPos");
+            }
             $nextBlockStartPos = strpos($css, '{', $blockStartPos + 1);
             $ret .= substr($css, $substrOffset, $blockStartPos - $substrOffset);
 
@@ -544,6 +586,9 @@ class Minifier
      */
     private function processRuleBody($body)
     {
+        //https://github.com/tubalmartin/YUI-CSS-compressor-PHP-port/issues/69
+        $body = (string) $body;
+
         $body = trim($body);
 
         // Remove spaces before the things that should not have spaces before them.
@@ -551,7 +596,7 @@ class Minifier
 
         // Remove the spaces after the things that should not have spaces after them.
         $body = preg_replace('/([:=,(*\/!;\n]) /S', '$1', $body);
-        
+
         // Replace multiple semi-colons in a row by a single one
         $body = preg_replace('/;;+/S', ';', $body);
 
@@ -565,7 +610,7 @@ class Minifier
         if (strpos($body, '/*') !== false) {
             $body = preg_replace('/\n?\/\*[A-Z0-9_]+\*\/\n?/S', '', $body);
         }
-        
+
         // Empty rule body? Exit :)
         if (empty($body)) {
             return '';
@@ -601,6 +646,14 @@ class Minifier
             $body
         );
 
+        // Tokenize unquoted font names in order to hide them from
+        // color name replacements.
+        $body = preg_replace_callback(
+            $this->unquotedFontsRegex,
+            array($this, 'preserveUnquotedFontTokens'),
+            $body
+        );
+
         // Shorten long named colors with a shorter HEX counterpart: white -> #fff.
         // Run at least 2 times to cover most cases
         $body = preg_replace_callback(
@@ -608,6 +661,9 @@ class Minifier
             array($this, 'shortenNamedColorsCallback'),
             $body
         );
+
+        // Restore unquoted font tokens now after colors have been changed.
+        $body = $this->restoreUnqoutedFontTokens($body);
 
         // Replace positive sign from numbers before the leading space is removed.
         // +1.2em to 1.2em, +.8px to .8px, +2% to 2%
@@ -696,6 +752,16 @@ class Minifier
         return $body;
     }
 
+    private function preserveUnquotedFontTokens($matches)
+    {
+        return $this->registerUnquotedFontToken($matches[0]);
+    }
+
+    private function restoreUnqoutedFontTokens($body)
+    {
+        return strtr($body, $this->unquotedFontTokens);
+    }
+
     /**
      * Compresses At-rules and selectors.
      * @param string $css the whole stylesheet with rule bodies tokenized.
@@ -706,13 +772,13 @@ class Minifier
         $charset = '';
         $imports = '';
         $namespaces = '';
-        
+
         // Remove spaces before the things that should not have spaces before them.
         $css = preg_replace('/ ([@{};>+)\]~=,\/\n])/S', '$1', $css);
 
         // Remove the spaces after the things that should not have spaces after them.
         $css = preg_replace('/([{}:;>+(\[~=,\/\n]) /S', '$1', $css);
-        
+
         // Shorten shortable double colon (CSS3) pseudo-elements to single colon (CSS2)
         $css = preg_replace('/::(before|after|first-(?:line|letter))(\{|,)/Si', ':$1$2', $css);
 
@@ -733,7 +799,7 @@ class Minifier
         if ($this->keepImportantComments) {
             $css = str_replace("\n\n", "\n", $css);
         }
-        
+
         // Restore fraction
         $css = str_replace(self::QUERY_FRACTION, '/', $css);
 
@@ -761,7 +827,7 @@ class Minifier
             array($this, 'strtolowerCallback'),
             $css
         );
-        
+
         // @charset handling
         if (preg_match($this->charsetRegex, $css, $matches)) {
             // Keep the first @charset at-rule found
@@ -785,7 +851,7 @@ class Minifier
             // Delete all @namespace at-rules
             return '';
         }, $css);
-        
+
         // Order critical at-rules:
         // 1. @charset first
         // 2. @imports below @charset
@@ -834,11 +900,11 @@ class Minifier
         $type = $matches[1];
         $values = explode(',', $matches[2]);
         $terminator = $matches[3];
-        
+
         if ($type === 'hsl') {
             $values = Utils::hslToRgb($values);
         }
-        
+
         $hexColors = Utils::rgbToHex($values);
 
         // Restore space after rgb() or hsl() function in some cases such as:
@@ -858,12 +924,12 @@ class Minifier
     private function shortenHexColorsCallback($matches)
     {
         $hex = $matches[1];
-        
+
         // Shorten suitable 6 chars HEX colors
         if (strlen($hex) === 6 && preg_match('/^([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/Si', $hex, $m)) {
             $hex = $m[1] . $m[2] . $m[3];
         }
-        
+
         // Lowercase
         $hex = '#'. strtolower($hex);
 

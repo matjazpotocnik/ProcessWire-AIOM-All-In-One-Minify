@@ -36,31 +36,41 @@
  * ----------------------------------------------------------------------------------
  */
 // @codingStandardsIgnoreLine
-class AllInOneMinify extends WireData implements Module, ConfigurableModule {
+/**
+ * AllInOneMinify
+ * @property \ProcessWire\WireInput $input
+ * @property \ProcessWire\Session $session
+ * @property \ProcessWire\Modules $modules
+ * @property \ProcessWire\Config $config
+ * @property \ProcessWire\Pages $pages
+ * @property \ProcessWire\Page $page
+ */
+ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
-	public const cacheDir  = 'aiom'; // name of the cache folders
-	public const min_cache_lifetime = 60; // 1 minute
-	public const max_cache_lifetime = 31536000; // 1 year
-	public const default_cache_lifetime = 2419200; // 28 days
-	public const debug = false;
+	public const CACHEDIR  = 'aiom'; // name of the cache folder(s), no leading/trailing slashes
+	public const MIN_CACHE_LIFETIME = 60; // in seconds, 1 minute
+	public const MAX_CACHE_LIFETIME = 31536000; // in seconds, 1 year
+	public const DEFAULT_CACHE_LIFETIME = 2419200; // in seconds, 28 days
+	public const DEBUG = false; //for internal debuging
 
 	/**
 	 * Module info
 	 *
-	 * @return array
+	 * @return array<string, mixed>
 	 *
 	 */
 	public static function getModuleInfo() {
 
 		return [
 			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.0.7',
+			'version' => '4.0.8',
 			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
 			'summary' => __('AIOM+ (All In One Minify) is a module to improve the performance of your website. Stylesheets, LESS and Javascript files can be parsed, minimized and combined into one single file. This reduces the server requests, loading time and minimizes the traffic. In addition, the generated HTML source code can be minimized and all generated files can be loaded over a cookieless domain (domain sharding). Even more: AIOM+ can enhance builtin template caching and noticeable speed up your site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
 			'singular' => true,
 			'autoload' => true,
 			'requires' => 'ProcessWire>=3.0.118, PHP>=7.2.5', // wireRmdir(), \Symphony\css-selector
+			//NOTE: Included version of css-selector is rather old and does not support new css (sub)selectors. Newer versions require PHP 8.4
 		];
 	}
 
@@ -72,13 +82,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * This module config data
-	 * @var array
+	 * @var array<string, string>
 	 */
 	protected static $configData = [];
 
 	/**
 	 * This module default config data
-	 * @var array
+	 * @var array<string, string>
 	 */
 	protected static $configDataDefault = [];
 
@@ -104,13 +114,15 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Construct and set default configuration
 	 *
+	 * @return void
+	 *
 	 */
 	public function __construct() {
 
 		self::$configDataDefault = [
 			'stylesheet_prefix' => 'css_',
 			'javascript_prefix' => 'js_',
-			'max_cache_lifetime' => self::default_cache_lifetime,
+			'max_cache_lifetime' => (string) self::DEFAULT_CACHE_LIFETIME,
 			'html_minify' => '',
 			'css_minify' => '',
 			'js_minify' => '',
@@ -122,22 +134,44 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			'template_files' => '',
 		];
 
+		/** @var Modules $modules */
 		$modules = wire()->modules;
 		$paths = wire()->config->paths;
+		/** @var array<string, string> $cfg */
+		$cfg = $modules->getConfig($this);
 
-		self::$configData = $this->_sanitize_data($modules->getModuleConfigData($this));
-		self::$assetsCacheDir = $paths->assets . self::cacheDir . '/';           // /site/assets/aiom/
-		self::$aiomCacheDir =   $paths->cache  . self::cacheDir . '/';           // /site/assets/cache/aiom/
+		self::$configData = $this->_sanitize_data($cfg);
+		self::$assetsCacheDir = $paths->assets . self::CACHEDIR . '/';           // /site/assets/aiom/
+		self::$aiomCacheDir =   $paths->cache  . self::CACHEDIR . '/';           // /site/assets/cache/aiom/
 		self::$pagesCacheDir =  $paths->cache  . PageRender::cacheDirName . '/'; // /site/assets/cache/Page/
 
 	}
 
+	/**
+	 * Initializes the module by registering class aliases so that public methods
+	 * AIOM::JS() and AIOM::CSS() can be used in both namespaced and non-namespaced
+	 * templates.
+	 *
+	 * @return void
+	 */
+	public function init() {
+		// Make it available in the ProcessWire namespace (for namespaced templates)
+		if(!class_exists('\\ProcessWire\\AIOM')) {
+			class_alias('\\AIOM', '\\ProcessWire\\AIOM');
+		}
+
+		// Make it available in the Global namespace (for non-namespaced templates)
+		if(!class_exists('\\AIOM')) {
+			class_alias('ProcessWire\\AIOM', '\\AIOM');
+		}
+	}
 
 	/**
-	 * Create new wire tab
+	 * Create a new tab (WireTabs) or a plain fieldset, depending on $useTabs.
 	 *
-	 * @param  bool $useTabs
-	 * @param  string $label
+	 * @param  bool        $useTabs   True for a tab (WireTab), false for a plain fieldset.
+	 * @param  string      $label     Tab/fieldset label.
+	 * @param  int|bool    $collapsed Collapsed state for fieldset.
 	 * @return InputfieldWrapper|InputfieldFieldset
 	 */
 	private function _newTab($useTabs, $label, $collapsed = false) {
@@ -160,13 +194,19 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 	}
 
+	/**
+	 * Sanitize & normalize module config data with defaults.
+	 *
+	 * @param array<string, string> $data
+	 * @return array<string, string>
+	 */
 	private function _sanitize_data($data) {
 		if(empty($data)) return self::$configDataDefault;
 
 		$sanitizer = wire()->sanitizer;
 
 		$_data = $data;
-		$data['max_cache_lifetime'] = $this->_sanitizeNumericCacheTime($data['max_cache_lifetime']);
+		$data['max_cache_lifetime'] = (string) $this->_sanitizeNumericCacheTime($data['max_cache_lifetime']);
 
 		$data['stylesheet_prefix'] = $sanitizer->name($data['stylesheet_prefix']);
 		//if(empty($data['stylesheet_prefix'])) unset($data['stylesheet_prefix']); //allow empty string
@@ -189,9 +229,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Configure the input fields for the backend.
+	 * Configure the input fields for the admin backend.
 	 *
-	 * @param  array  $data Module data from the database.
+	 * @param array<string, string> $data Module data from the database.
 	 * @return InputfieldWrapper
 	 */
 	public function getModuleConfigInputfields($data) {
@@ -203,20 +243,19 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$labelCaching = __('Caching');
 		$labelMinimizing = __('Minimizing');
 		$labelUsage = __('Usage');
-		//$labelPerformance = __('Performance');
 		$labelReadme = __('Readme');
 
 		$modules = wire()->modules;
 		$templates = wire()->templates;
 		$config = wire()->config;
 
-		if($useTabs) {
-			// since 3.0.170 children inside InputfieldWrapper don't get style="width: xx%"
+			/** @phpstan-ignore if.alwaysTrue */
+			if($useTabs) {
+			// since PW 3.0.170 children inside InputfieldWrapper don't get style="width: xx%"
 			// so if tabs are used, the workaround is to use ukGrid layout that use uk-width-* classes
 			$adminTheme = $config->wire('adminTheme');
 			$adminTheme->ukGrid = true;
 			$wiretabs = $modules->get('JqueryWireTabs');
-			//$wrapper1 = new InputfieldWrapper(); //return value
 			$wrapper1 = wire(new InputfieldWrapper());
 
 			$wrapper = $modules->get('InputfieldFieldset');
@@ -233,8 +272,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$links['AIOMtab-1'] = $labelCaching;
 			$links['AIOMtab-2'] = $labelMinimizing;
 			$links['AIOMtab-3'] = $labelUsage;
-			//$links['AIOMtab-4'] = $labelPerformance;
-			//$links['AIOMtab-5'] = $labelReadme;
+			$links['AIOMtab-4'] = $labelReadme;
 			$tabList = $wiretabs->renderTabList($links, ['id' => 'AIOMlinks']);
 			$wiretabsID->value = "<div id='AIOMtabs'>$tabList</div>";
 			*/
@@ -250,7 +288,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 			$wrapper1->add($wrapper);
 		} else {
-			//$wrapper = new InputfieldWrapper(); //return value
 			$wrapper = wire(new InputfieldWrapper());
 		}
 
@@ -265,12 +302,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->value       = $data['cache_enable'];
 		$field->checked     = ($field->value == 1) ? 'checked' : '';
 		$field->notes       = __('This option enhances core template caching. Minimizing/caching of JS and CSS files can be set up independently.');
-		$indexFile = file_get_contents($config->paths->root . 'index.php');
+		$indexFile = (string) file_get_contents($config->paths->root . 'index.php');
 		if(strpos($indexFile, 'AIOMcache.php') === false) $field->notes .= "\n\n" . __('Looks like caching is not enabled in index.php. Consult README.md for instructions.');
 		$fieldset->add($field);
 
-		$field = $this->modules->get('InputfieldTextarea');
-		$field->attr('name', 'template_files');
+		$field = $modules->get('InputfieldTextarea');
+		$field->name = 'template_files';
 		$field->label = 'Additional cache clear options';
 		$field->rows = 3;
 		$field->columnWidth = 34;
@@ -284,14 +321,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field              = $modules->get('InputfieldMarkup');
 		$field->columnWidth = 33;
 		$field->label       = __('Cache control');
-		//$field->description = __('Here you can delete all AIOM+ and template cache files.').'<br><br>';
 		$field->description = __('Here you can delete all AIOM+ cache files.').'<br><br>';
 		$field->entityEncodeText = false;
-		//commented due to performance reasons
+		//commented due to possible performance reasons
 		//$_cacheInfoPage     = self::_getNumberOfPagesCacheFiles();
 		//$_cacheInfoAiom		  = self::_getNumberOfAiomCacheFiles();
-		//$field->value  = sprintf(__('Cached files: %s | Used space: %s'), $_cacheInfoAiom['numberOfFiles'], $_cacheInfoAiom['bytesTotal']);
-		//$field->value .= sprintf(__('Template cache: Pages cached: %s | Cache files: %s | Used space: %s'), $_cacheInfoPage['numberOfPages'], $_cacheInfoPage['numberOfFiles'], $_cacheInfoPage['bytesTotal']).'<br>';
+		//$field->value  = sprintf(__('AIOM cache files: %s | Size: %s'), $_cacheInfoAiom['numberOfFiles'], $_cacheInfoAiom['bytesTotal']);
+		//$field->value .= '<br>'.sprintf(__('Template cache files: %s | Pages: %s | Size: %s'), $_cacheInfoPage['numberOfFiles'], $_cacheInfoPage['numberOfPages'],  $_cacheInfoPage['bytesTotal']).'<br>';
 
 				$field_button        = $modules->get('InputfieldButton');
 				$field_button->name  = 'empty_page_cache';
@@ -336,14 +372,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				$c = isset($c) ? $c : '???';
 				$ct = $t->cache_time > 0 ? $t->cache_time . ' (' . self::_seconds2human($t->cache_time) . ')' : '0';
 				$tn = $t->cache_time > 0 ? '<b>' . $t->name . '</b>' : $t->name;
-				//if($t->useCacheForUsers === 0) $c .= ', ' . __('for guests only');
-				//if($t->useCacheForUsers === 1) $c .= ', ' . __('for guests and logged-in users');
 				$table->row([
-					//[$tn => '../setup/templates/edit?id=' . $t->id . '#tab_cache'], //not working due to a bug
-					"<a href='../setup/template/edit?id=" . $t->id . "#tab_cache'>" . $tn . "</a>",
+					//[$tn => '../../setup/templates/edit?id=' . $t->id . '#tab_cache'], //not working due to a bug
+					"<a href='../../setup/template/edit?id=" . $t->id . "#tab_cache'>" . $tn . "</a>",
 					$templates->getNumPages($t),
 					$ct,
-					//$t->cache_time . ' (' . self::_seconds2human($t->cache_time) . ')',
 					$b,
 					$c,
 				]);
@@ -359,7 +392,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$field->value       = $table->render();
 			$field->description = __('This is a list of templates with enabled caching. Click on the template name to change the cache settings.');
 		}
-		$field->notes = __('Set the caching options for other templates in [Templates Setup](../setup/template/).');
+		$field->notes = __('Set the caching options for other templates in [Templates Setup](../../setup/template/).');
 		$fieldset->add($field);
 
 		$wrapper->add($fieldset);
@@ -442,7 +475,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->label       = __('Cache control');
 		$field->description = __('Here you can delete minimized JS and CSS files. Note: this will also empty the template cache!').'<br><br>';
 		$field->entityEncodeText = false;
-		$field->value = sprintf(__('Cached files: %s | Used space: %s'), $_cacheInfo['numberOfFiles'], $_cacheInfo['bytesTotal']);
+		$field->value = sprintf(__('Minimized files: %s | Size: %s'), $_cacheInfo['numberOfFiles'], $_cacheInfo['bytesTotal']);
 
 				$field_button        = $modules->get('InputfieldButton');
 				$field_button->name  = 'empty_cache';
@@ -464,7 +497,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$field->name        = 'domain_sharding_ssl';
 		$field->label       = __('Domain sharding (SSL)');
 		$field->columnWidth = 50;
-		//$field->attr(['placeholder' => 'https://static.mysite.com']);
 		$field->value       = $data['domain_sharding_ssl'];
 		$field->description = __('To speed up the download of stylesheets and javascripts, this can be made available via a second subdomain (parallel download and Cookieless domain). The second subdomain (e.g., static.mysite.com) must also point to the web root directory of ProcessWire. Leave the field blank to disable this option.');
 		$fieldset->add($field);
@@ -475,27 +507,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		$field              = $modules->get('InputfieldMarkup');
 		$field->label       = __('How to use AIOM+');
-		//$field->description = sprintf(__('Quick introduction to the module and how you use it. Full documentation under: %s'), 'https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify');
 		$field->description = __('Quick introduction to the module and how you use it. See README.md for full documentation.');
 		$field->markupText  = file_get_contents($config->paths->AllInOneMinify.'doc/how-to-use.html');
 		$fieldset->add($field);
 
 		$wrapper->add($fieldset);
 
-		/*
-		$fieldset = $this->_newTab($useTabs, $labelPerformance, Inputfield::collapsedNoLocked); //AIOMtab-4
-
-		$field              = $modules->get('InputfieldMarkup');
-		$field->label       = __('Performance tips');
-		$field->description = __('Tips how you can improve the performance of your page even further and what you need to consider if you are using domain sharding.');
-		$field->markupText  = file_get_contents($config->paths->AllInOneMinify.'doc/htaccess-and-performance-tips.html');
-		//$field->addClass('AIOMlast');
-		$fieldset->add($field);
-
-		$wrapper->add($fieldset);
-		*/
-
-		$fieldset = self::_newTab($useTabs, $labelReadme, Inputfield::collapsedNoLocked); //AIOMtab-5
+		$fieldset = self::_newTab($useTabs, $labelReadme, Inputfield::collapsedNoLocked); //AIOMtab-4
 
 		$field              = $modules->get('InputfieldMarkup');
 		$field->label       = __('Readme for AIOM+');
@@ -507,19 +525,20 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$wrapper->add($fieldset);
 
 
+		/** @phpstan-ignore ternary.alwaysTrue */
 		return $useTabs ? $wrapper1 : $wrapper;
 	}
 
 	/**
 	 * Create the cache folder in the /site/assets/.
 	 *
+	 * @return void
+	 * @throws WireException
 	 */
 	public function ___install() {
 		$dir = self::$assetsCacheDir;
 
-		if(is_dir($dir)) return true;
-
-		if(wireMkdir($dir) === false) {
+		if(!is_dir($dir) && wireMkdir($dir) === false) {
 			throw new WireException("The cache folder $dir could not be created.");
 		}
 
@@ -532,23 +551,25 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Remove the cache folders /site/assets/aiom/ and /site/assets/cache/aiom/
 	 *
+	 * @return void
 	 */
 	public function ___uninstall() {
 
-		$dir = self::$assetsCacheDir;
-		if(is_dir($dir) && (wireChmod($dir) === false || wireRmdir($dir, true) === false)) {
-			$this->error("The folder $dir could not be removed.");
-		}
+		$paths = [self::$assetsCacheDir, self::$aiomCacheDir];
 
-		$dir = self::$aiomCacheDir;
-		if(is_dir($dir) && (wireChmod($dir) === false || wireRmdir($dir, true) === false)) {
-			$this->warning("The cache folder $dir could not be removed.");
+		foreach($paths as $dir) {
+			if(!is_dir($dir)) continue;
+			wireChmod($dir);
+			if(wireRmdir($dir, true) === false) {
+				$this->warning("The folder $dir could not be removed.");
+			}
 		}
 	}
 
 	/**
 	 * Set hooks
 	 *
+	 * @return void
 	 */
 	public function ready() {
 
@@ -556,8 +577,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$input = wire()->input;
 		$page = wire()->page;
 
-		if($input->get('cache') == 'clear' AND $page->template->name === 'admin') self::ClearAssetsCacheFromBackend();
-		if($input->get('pagecache') == 'clear' AND $page->template->name === 'admin') self::ClearAiomCacheFromBackend();
+		if($input->get('cache') === 'clear' && $page->template->name === 'admin') self::clearAssetsCacheFromBackend();
+		if($input->get('pagecache') === 'clear' && $page->template->name === 'admin') self::clearAiomCacheFromBackend();
 
 		//js needed only if using WireTabs with custom wiretabid
 		//$config->scripts->add($config->urls->siteModules . __CLASS__ . '/' . __CLASS__ . '.js');//?v=' . time());
@@ -565,16 +586,16 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		// Check if template files are newer than cache file
 		if($page->template->name !== 'admin' && $page->template->cache_time > 0 && self::$configData['template_files'] !== '') {
-			$this->addHookBefore('Page::render', $this, 'checkTemplateFiles');
+			$this->addHookBefore('Page::render', $this, '_checkTemplateFiles');
 		}
 
 		if((
-				self::$configData['html_minify'] != 1 AND
-				self::$configData['css_minify'] != 1 AND
-				self::$configData['js_minify'] != 1 AND
-				self::$configData['cache_enable'] != 1) OR
-				//self::$configData['development_mode'] == 1 OR //todo: should development mode affect caching?
-				($page->template->name === 'admin' OR $page->template->name === 'user')) return;
+				self::$configData['html_minify'] != 1 &&
+				self::$configData['css_minify'] != 1 &&
+				self::$configData['js_minify'] != 1 &&
+				self::$configData['cache_enable'] != 1) ||
+				//self::$configData['development_mode'] == 1 || //todo: should development mode affect caching?
+				($page->template->name === 'admin' || $page->template->name === 'user')) return;
 
 		if(self::$configData['cache_enable'] == 1) {
 			if(!is_file(self::$aiomCacheDir . 'aiom.enabled')) @file_put_contents(self::$aiomCacheDir . 'aiom.enabled', time());
@@ -583,10 +604,10 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		}
 
 		// Check if the current template requires SSL.
-		$this->addHookBefore('Page::render', $this, 'CheckSSL');
+		$this->addHookBefore('Page::render', $this, '_checkSSL');
 
 		// Add a hook that is called after rendering the page and minimize the
-		// generated source code, inlined js/css files and create a cache file.
+		// generated html source code, inlined js/css files and create a cache file.
 		$this->addHookAfter('Page::render', $this, 'HTML', ['priority' => 199]);
 
 		// Check if already cached files longer than the configured time exist.
@@ -594,152 +615,187 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		self::_clearAssetsCache();
 	}
 
-	/**
-	 * Minimization and combination of JS files. Executable from the template.
-	 *
-	 * @param  mixed $javascripts  Relative string from the template folder or an array with several files
-	 *                             relative to the template folder. For example: 'js/file.js' or
-	 *                             ['js/file1.js', 'js/file2.js']
-	 *
-	 * @example <script src="<?php echo AllInOneMinify::JS(['js/file1.js', 'js/file2.js']); ?>"></script>
-	 *
-	 * @return string              URL string of the combined javascript file
-	 */
-	public static function JS($javascripts) {
-		//bd($javascripts, "JS() javascripts array");
 
-		// Check if at least one file was passed.
+	/**
+	 * Minifies, combines, and caches one or more JavaScript files.
+	 *
+	 * Accepts a single JavaScript path or an array of them. Each file is minimized,
+	 * concatenated with others, and written into a single cached asset file.
+	 * Returns the public URL to the generated asset.
+	 *
+	 * @param string|array<int,string>|FilenameArray $javascripts
+	 *     A JavaScript file path or array of file paths relative to the templates
+	 *     directory.
+	 *
+	 *     Examples:
+	 *     - `'js/main.js'`
+	 *     - `['lib.js', 'app.js']`
+	 *     - `$config->scripts`
+	 *
+	 * @return string
+	 *     Public URL to the combined and minimized JavaScript file eg.
+	 *     `/site/assets/aiom/js_1f259989ada30d54ea095abce48b228c.js`
+	 *
+	 * @example
+	 *     echo "<script src='" . AIOM::JS(['js/vendor.js', 'js/main.js']); . "'></script>";
+	 *
+	 * @example
+	 *     <script src="<?= AIOM::JS('app.js'); ?>"></script>
+	 *
+	 * @example
+	 *     // Using PW config scripts (FilenameArray)
+	 *     <script src="<?= AIOM::JS($config->scripts); ?>"></script>
+	 *
+	 * @example
+	 *     // Using custom FilenameArray
+	 *     $js = new FilenameArray();
+	 *     $js->add('js/vendor.js');
+	 *     $js->add('js/main.css');
+	 *     echo "<script src='" . AIOM::JS($js); . "'></script>";
+	 */
+		public static function JS($javascripts) {
 		if(empty($javascripts)) throw new WireException('There were no javascript files specified to minimize.');
 
-		// Support passing of $config->scripts as argument which is of type FilenameArray
-		if(($javascripts instanceof FilenameArray))
-				$javascripts = (array) $javascripts->getIterator(); // Convert to array
+		// support for FilenameArray eg. $config->scripts
+		if(($javascripts instanceof FilenameArray)) {
+			$javascripts = (array) $javascripts->getIterator(); // Convert to array
+		}
 
-		// Check if files exist and generate the cache file name based on last file modification time.
-		$javascripts = is_array($javascripts) ? $javascripts : [$javascripts];
+		$javascripts = (array) $javascripts;
 		$javascripts = self::_fileArray($javascripts, '.js');
-		$cacheFile   = self::_getCacheName($javascripts, self::$configData['javascript_prefix'], '.js');
+		$cacheFile   = self::_getCacheName($javascripts, (string) self::$configData['javascript_prefix'], '.js');
 		$assetDomain = self::_getAssetDomain();
+		$cachePath   = self::$assetsCacheDir . $cacheFile;
+		$isDev       = self::$configData['development_mode'] == 1;
+		$config      = wire()->config;
 		//bd($javascripts, "JS() javascripts array");
 
 		// Check if there is already a combined and cached file. If not, generate a new minimized cache file.
-		if(!file_exists(self::$assetsCacheDir . $cacheFile) OR self::$configData['development_mode'] == 1) {
-			//bd($cacheFile, "JS() cachefile does not exist, creating a new one");
-			$config = wire()->config;
-			$lib = $config->paths->siteModules . __CLASS__ . '/lib/';
+		if(!file_exists($cachePath) || $isDev) {
+			//bd($cachePath, "JS() cachePath does not exist, creating a new one");
 
-			// ------------------------------------------------------------------------
-			// Load the minimization Library
-			// ------------------------------------------------------------------------
-			// @source https://code.google.com/p/minify/source/browse/min/lib/JSMin.php?name=2.1.7
-			// @version 2.1.7
-			// @license MIT License (MIT)
-			// @description PHP implementation of Douglas Crockford's JSMin. This is
-			//              pretty much a direct port of jsmin.c to PHP with just a few
-			//              PHP-specific performance tweaks. Also, whereas jsmin.c reads
-			//              from stdin and outputs to stdout, this library accepts a
-			//              string as input and returns another string as output.
-			//------------------------------------------------------------------------
+			// Load the minimization library - PHP implementation of Douglas Crockford's JSMin
+			// https://code.google.com/p/minify/source/browse/min/lib/JSMin.php?name=2.1.7
+			$lib = $config->paths->siteModules . __CLASS__ . '/lib/';
 			require_once(/*NoCompile*/ $lib . 'JSMin.php');
 
 			// Expire pages cache files if template caching is enabled.
 			self::_clearPagesCache();
 
 			$_js = '';
-
-			// Load all content, minimize and put everything in a variable together.
 			foreach($javascripts as $javascript) {
 				//bd($javascript, "JS() processing javascript");
-				if(!$javascript) continue;
-
 				$jsFileName = $javascript['absolute_path'];
-				$_js_src = file_get_contents($jsFileName) . PHP_EOL;
-				if(!empty($_js_src) AND self::$configData['development_mode'] != 1 AND !self::_isMinimized($jsFileName)) {
-					JSMin::minify($_js_src);
+				$content = file_get_contents($jsFileName);
+				if($content === false) continue;
+
+				if(!$isDev && !self::_isMinimized($jsFileName)) {
+					$content = JSMin::minify($content);
+					//$content = self::_minifyJS($content); //alternative
 				}
 
-				$_js .= $_js_src;
+				$_js .= $content . PHP_EOL;
 			}
 
+			$_js = rtrim($_js, PHP_EOL);
+
 			// Write the minimized file to the file system.
-			$file = self::$assetsCacheDir . $cacheFile;
-			if(@file_put_contents($file, self::_generatorInformation($_js), LOCK_EX) !== false) {
-				if(self::debug) self::_log("$file created");
-				if(@wireChmod($file) === false) {
-					self::_log("ERROR: wireChmod($file) failed");
-				}
+			if(@file_put_contents($cachePath, self::_generatorInformation($_js), LOCK_EX) !== false) {
+				/** @phpstan-ignore if.alwaysTrue */
+				if(self::DEBUG) self::_log("$cachePath created");
+				@wireChmod($cachePath);
 			} else {
-				self::_log("ERROR: file_put_contents($file) failed");
+				self::_log("ERROR: file_put_contents($cachePath) failed");
 			}
 		}
 
 		// Return the absolute URL path to the minimized file.
-		return (self::$configData['development_mode'] != 1) ?
-			$assetDomain . '/' . $cacheFile :
-			$assetDomain . '/' . $cacheFile . '?no-cache=' . time();
+		$suffix = $isDev ? '?no-cache=' . time() : '';
+		return $assetDomain . '/' . $cacheFile . $suffix;
 	}
 
 	/**
-	 * Minimization and combination of CSS files. Executable from the template
-	 * with automatic URL rewriting of the CSS URLs.
+	 * Minifies, combines, rewrites URLs, and caches one or more stylesheet files.
 	 *
-	 * @param  mixed $stylesheets  Relative string from the template folder or an array with several files
-	 *                             relative to the template folder. For example: 'css/file.css' or
-	 *                             ['css/file1.css', 'css/file2.css']
+	 * Accepts a single stylesheet path or an array of them, processes
+	 * each file (CSS or LESS), rewrites relative URLs to root-relative paths,
+	 * minimizes the resulting content, and stores the combined output in
+	 * a cache file. Returns the public URL to the generated asset.
 	 *
-	 * @example <link rel="stylesheet" href="<?php echo AllInOneMinify::CSS(['css/file1.css', 'css/file2.css']); ?>">
+	 * LESS files are compiled using the included LESS parser. When running on
+	 * virtual host configurations, import directories are adjusted to keep
+	 * relative `@import` paths functional.
 	 *
-	 * @return string              URL string of the combined stylesheet file
+	 * @param string|array<int,string>|FilenameArray $stylesheets
+	 *     A stylesheet path (e.g. `"css/main.css"`) or a list of stylesheet
+	 *     paths relative to the template directory. A ProcessWire `FilenameArray`
+	 *     (such as `$config->styles`) is also supported.
+	 *
+	 *     Examples:
+	 *     - `'css/style.css'`
+	 *     - `['css/reset.css', 'css/layout.css']`
+	 *     - `$config->styles`
+	 *
+	 * @param array<string, string>|null $lessVars
+	 *     Optional LESS variables to inject when compiling `.less` files.
+	 *     Example: `['colorPrimary' => '#f00']`
+	 *
+	 * @return string
+	 *     The public URL to the combined and minimized stylesheet eg.
+	 *     `/site/assets/aiom/css_94aa3617a3252dca4262cca287709c96.css`
+	 *
+	 * @example
+	 *     // Combine two stylesheets
+	 *     echo "<link rel='stylesheet' href='" . AIOM::CSS(['css/base.css', 'css/home.css']); . "'>";
+	 *
+	 * @example
+	 *     // Compile LESS with variables
+	 *     <link rel="stylesheet" href="<?= AIOM::CSS('css/styles.less', ['brandColor' => '#1e88e5']); ?>">
+	 *
+	 * @example
+	 *     // Using PW config styles (FilenameArray)
+	 *     <link rel="stylesheet" src="<?= AIOM::CSS($config->styles); ?>"></script>
+	 *
+	 * @example
+	 *     // Using own FilenameArray array
+	 *     $css = new FilenameArray();
+	 *     $css->add('css/base.css');
+	 *     $css->add('css/home.css');
+	 *     echo "<link rel='stylesheet' href='" . AIOM::CSS($css) . "'>";
 	 */
-	public static function CSS($stylesheets, $lessVars = null) {
-		//bd($stylesheets, "CSS() stylesheets array");
-
-		// Check if at least one file was passed.
+		public static function CSS($stylesheets, $lessVars = null) {
 		if(empty($stylesheets)) throw new WireException('There were no stylesheet files specified to minimize.');
 
 		// Support passing of $config->styles as argument which is of type FilenameArray
-		if(($stylesheets instanceof FilenameArray))
+		if(($stylesheets instanceof FilenameArray)) {
 			$stylesheets = (array) $stylesheets->getIterator(); // Convert to array
+		}
 
-		// Check if files exist and generate the cache file name based on last file modification time.
-		$stylesheets = is_array($stylesheets) ? $stylesheets : [$stylesheets];
+		$stylesheets = (array) $stylesheets;
 		$stylesheets = self::_fileArray($stylesheets, ['.css', '.less']);
-		$cacheFile   = self::_getCacheName($stylesheets, self::$configData['stylesheet_prefix'], '.css');
+		$cacheFile   = self::_getCacheName($stylesheets, (string) self::$configData['stylesheet_prefix'], '.css');
 		$assetDomain = self::_getAssetDomain();
+		$cachePath   = self::$assetsCacheDir . $cacheFile;
+		$isDev       = self::$configData['development_mode'] == 1;
+		$config      = wire()->config;
+		$sanitizer   = wire()->sanitizer;
 		//bd($stylesheets, "CSS() stylesheets array");
 
 		// Check if there is already a combined and cached file. If not, generate a new minimized cache file.
-		if(!file_exists(self::$assetsCacheDir . $cacheFile) OR self::$configData['development_mode'] == 1) {
+		if(!file_exists($cachePath) || $isDev) {
 			//bd($cacheFile, "CSS() cachefile does not exist, creating a new one");
-			$config = wire()->config;
-			$lib = $config->paths->siteModules . __CLASS__ . '/lib/';
 
-			// Load the css minimization Library
-			//
-			// @version 2.4.8-4
-			// @docs https://github.com/tubalmartin/YUI-CSS-compressor-PHP-port
-			// @license BSD (revised)
-			// @description PHP port of the CSS minification tool distributed with
-			//              YUICompressor.
-			//------------------------------------------------------------------------
+			// Load the css minimization library - PHP port of the CSS minification tool distributed with YUICompressor.
+			// https://github.com/tubalmartin/YUI-CSS-compressor-PHP-port, version 2.4.8-4
 			//https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
 			//require_once(wire()->config->paths->AllInOneMinify.'lib'.DIRECTORY_SEPARATOR.'cssmin.php'); //original AIOM version
-
+			$lib = $config->paths->siteModules . __CLASS__ . '/lib/';
 			require_once(/*NoCompile*/ $lib . 'CssMin/Minifier.php');
 			require_once(/*NoCompile*/ $lib . 'CssMin/Colors.php');
-			require_once(/*NoCompile*/ $lib . 'CssMin/Command.php');
 			require_once(/*NoCompile*/ $lib . 'CssMin/Utils.php');
 
-			// Load the URL Rewriting Library
-			//
-			// @source https://code.google.com/p/minify/
-			// @docs https://code.google.com/p/minify/wiki/UriRewriting
-			// @version 2.1.7
-			// @license New BSD License
-			// @description This class uses an algorithm to rewrite relative URIs in CSS
-			//              output to root-relative URIs so that each link points to the
-			//              same location it did in its original file.
-			//------------------------------------------------------------------------
+			// Load the URL rewriting library - rewrite relative to root-relative URIs
+			// https://github.com/mrclay/minify/blob/master/lib/Minify/CSS/UriRewriter.php
 			require_once(/*NoCompile*/ $lib . 'UriRewriter.php');
 
 			// Expire pages cache files if template caching is enabled.
@@ -749,58 +805,42 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 			//todo: still not working?
 			//https://github.com/Philzen/ProcessWire-AIOM-All-In-One-Minify/commit/a7d7dbc0f1d484eb16b00c6d1378d24c086d8a09
-			$isVirtualHost = $_SERVER['DOCUMENT_ROOT'] !== str_replace($_SERVER['SCRIPT_NAME'], '', $_SERVER['SCRIPT_FILENAME']);
+			// use a helper variable to hold the 'mixed' data from the superglobal
+			$scriptName = $sanitizer->text($_SERVER['SCRIPT_NAME'] ?? '');
+			$scriptFilename = $sanitizer->text($_SERVER['SCRIPT_FILENAME'] ?? '');
+			$documentRoot = $sanitizer->text($_SERVER['DOCUMENT_ROOT'] ?? '');
+			$isVirtualHost = $documentRoot !== str_replace($scriptName, '', $scriptFilename);
 
-			// Load all content, minimize, rewrite the URLs and put everything in a variable together.
+			// Processes each stylesheet by loading its content, compiling LESS if needed, rewriting URLs,
+			// optionally minifying it, and appending the result to the combined CSS output.
 			foreach ($stylesheets as $stylesheet) {
 				//bd($stylesheet, "CSS() processing stylesheet");
-				if(!$stylesheet) continue;
-
 				$cssFileName = $stylesheet['absolute_path'];
-				$_css_src = file_get_contents($cssFileName) . PHP_EOL;
+				$content = file_get_contents($cssFileName);
+				if($content === false) continue;
 
 				// If LESS file then run LESS parser.
 				if($stylesheet['file_extension'] === 'less') {
-
-					// Load the LESS compiler Library
-					//
-					// @source http://lessphp.gpeasy.com/
-					// @docs http://lessphp.gpeasy.com/
-					// @version 1.7.1
-					// @license Apache License 2.0
-					// @description This is a PHP port of the official LESS processor. The code
-					//              structure of less.php mirrors that of the official processor
-					//              which helps us ensure compatibility and allows for easy
-					//              maintenance. Please note, there are a few unsupported LESS
-					//              features:
-					//
-					//              - Evaluation of JavaScript expressions within back-ticks
-					//                (for obvious reasons).
-					//              - Definition of custom functions.
-					//------------------------------------------------------------------------
+					// Load the LESS compiler Library !!!OBSOLETE!!!
+					// http://lessphp.gpeasy.com/ v1.7.1
 					require_once($lib . 'Less/Less.php');
+					//require_once($lib . 'WikiLess/lessc.inc.php'); alternative, but requires PHP 8.1+
 
 					try {
-						$_less_parser = new Less_Parser();
+						//https://github.com/gr4y/ProcessWire-AIOM-All-In-One-Minify/commit/e4fc75f2b9e92dc8ab09573c985f3f900b71cb43
+						$_less_parser = new \Less_Parser(['sourceMap' => $isDev]);
 						//https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/pull/50/commits/7c0c6f333459faf4c9156546fcc635ce26c73f8f
 						if($isVirtualHost) {
-							$relativeDirectory = DIRECTORY_SEPARATOR
-								. str_replace($config->paths->root, '', dirname($cssFileName))
-								. DIRECTORY_SEPARATOR;
-							$_less_parser->SetImportDirs([dirname($cssFileName) . DIRECTORY_SEPARATOR => $relativeDirectory ]);
+							$relDir = '/' . str_replace((string) $config->paths->root, '', dirname($cssFileName)) . '/';
+							/** @phpstan-ignore-next-line because LESS accepts dir=>path pairs */
+							$_less_parser->SetImportDirs([dirname($cssFileName) . '/' => $relDir]);
 						}
-						//https://github.com/gr4y/ProcessWire-AIOM-All-In-One-Minify/commit/e4fc75f2b9e92dc8ab09573c985f3f900b71cb43
-
-						// In Development Mode a SourceMap will be generated
-						$_less_parser->SetOptions([
-							'sourceMap' => self::$configData['development_mode'] == 1 ? true : false,
-						]);
-						$_less_parser->parse($_css_src);
+						$_less_parser->parse($content);
 						if($lessVars) $_less_parser->ModifyVars($lessVars);
-						$_css_src = $_less_parser->getCss();
+						$content = $_less_parser->getCss();
 
-					} catch(Exception $error) {
-						$_css_src = '#_____LESS_____ERROR_____REPORT_____ {content:"' . $error->getMessage() . '"}';
+					} catch(\Exception $e) {
+						$content = '#_____LESS_____ERROR_____REPORT_____ {content:"' . $e->getMessage() . '"}';
 					}
 				}
 
@@ -808,31 +848,31 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				//https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
 				//https://github.com/Philzen/ProcessWire-AIOM-All-In-One-Minify/commit/a7d7dbc0f1d484eb16b00c6d1378d24c086d8a09
 				//$cssMin = new CSSmin(); //original AIOM
-				if(!empty($_css_src) AND self::$configData['development_mode'] != 1 AND !self::_isMinimized($cssFileName)) {
-					$_css_src = Minify_CSS_UriRewriter::rewrite($_css_src, dirname($cssFileName), $isVirtualHost ? $config->paths->root : null);
+				if(!$isDev && !self::_isMinimized($cssFileName)) {
+					$content = \Minify_CSS_UriRewriter::rewrite($content, dirname($cssFileName), $isVirtualHost ? $config->paths->root : null);
 					$cssMin = new \tubalmartin\CssMin\Minifier();
-					$_css_src = $cssMin->run($_css_src);
+					$content = $cssMin->run($content);
+					//$content = self::_minifyCSS($content); //alternative
 				}
 
-				$_css .= $_css_src;
+				$_css .= $content . PHP_EOL;
 			}
 
+			$_css = rtrim($_css, PHP_EOL);
+
 			// Write the minimized file to the file system.
-			$file = self::$assetsCacheDir . $cacheFile;
-			if(@file_put_contents($file, self::_generatorInformation($_css), LOCK_EX) !== false) {
-				if(self::debug) self::_log("$file created");
-				if(@wireChmod($file) === false) {
-					self::_log("ERROR: wireChmod($file) failed");
-				}
+			if(@file_put_contents($cachePath, self::_generatorInformation($_css), LOCK_EX) !== false) {
+				/** @phpstan-ignore if.alwaysTrue */
+				if(self::DEBUG) self::_log("$cachePath created");
+				@wireChmod($cachePath);
 			} else {
-				self::_log("ERROR: file_put_contents($file) failed");
+				self::_log("ERROR: file_put_contents($cachePath) failed");
 			}
 		}
 
 		// Return the absolute URL path to the minimized file.
-		return (self::$configData['development_mode'] != 1)
-			? $assetDomain . '/' . $cacheFile
-			: $assetDomain . '/' . $cacheFile . '?no-cache='.time();
+		$suffix = $isDev ? '?no-cache=' . time() : '';
+		return $assetDomain . '/' . $cacheFile . $suffix;
 	}
 
 	/**
@@ -841,16 +881,21 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 */
 	private static function _clearAiomCache() {
 		$num = self::_getNumberOfAiomCacheFiles(true); //true as parameter deletes the files
-		$numRemoved = $num['numberOfFiles'];
-		//if you use wirermdir, then be sure to recreate file aiom.enabled!!!
+		$numRemoved = (int) $num['numberOfFiles'];
+
 		$ret = wireRmdir(self::$aiomCacheDir, true);
+		if($ret === false) {
+			self::_log("ERROR: wireRmdir(" . self::$aiomCacheDir . ", true) failed");
+		}
 		wireMkdir(self::$aiomCacheDir);
+
 		if(self::$configData['cache_enable'] == 1) {
 			if(!is_file(self::$aiomCacheDir . 'aiom.enabled')) @file_put_contents(self::$aiomCacheDir . 'aiom.enabled', time());
 		} else {
-			if(is_file(self::$aiomCacheDir . 'aiom.enabled')) @unlink(self::$aiomCacheDir . 'aiom.enabled', time());
+			if(is_file(self::$aiomCacheDir . 'aiom.enabled')) @unlink(self::$aiomCacheDir . 'aiom.enabled');
 		}
-		self::_log("Deleted $numRemoved files from " . self::$aiomCacheDir);
+
+		self::_log("Deleted $numRemoved file(s) from " . self::$aiomCacheDir);
 		return $numRemoved;
 	}
 
@@ -864,7 +909,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if(is_dir(self::$pagesCacheDir)) {
 			$numRemoved = CacheFile::removeAll(self::$pagesCacheDir);
 		}
-		self::_log("Deleted $numRemoved files from " . self::$pagesCacheDir);
+		self::_log("Deleted $numRemoved file(s) from " . self::$pagesCacheDir);
 		return $numRemoved;
 	}
 
@@ -886,19 +931,25 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if(!is_dir($dir)) return 0;
 
 		$numRemoved1 = $numRemoved2 = 0;
-		$_cacheFiles = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
+		$now = time();
+		$_cacheFiles = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
 
 		// Remove all files that are older than the maximum lifetime.
 		foreach($_cacheFiles as $_cacheFile) {
+			/** @var SplFileInfo $_cacheFile */
+			if(!$_cacheFile->isFile()) continue;
 			$file = $dir . $_cacheFile->getFilename();
+			$mtime = filemtime($file);
+			//$file = $_cacheFile->getPathname();
 			//bd($file, "_clearAssetsCache() checking if file is expired");
-			if(((filemtime($file) + self::$configData['max_cache_lifetime']) < time() || $force_all) && is_file($file)) {
+			if($mtime !== false && ((int) $mtime + (int) self::$configData['max_cache_lifetime'] < $now || $force_all)) {
 				if(wireChmod($file) !== false) {
 					if(@unlink($file) === false) {
 						self::_log("ERROR: unlink($file) failed");
 					} else {
 						$numRemoved1++;
-						if(self::debug) self::_log("Deleted $file");
+						/** @phpstan-ignore if.alwaysTrue */
+						if(self::DEBUG) self::_log("Deleted $file");
 						//bd($file, "_clearAssetsCache() deleted file");
 					}
 				} else {
@@ -906,7 +957,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				}
 			}
 		}
-		if($numRemoved1 > 0) self::_log("Deleted $numRemoved1 files from $dir");
+		if($numRemoved1 > 0) self::_log("Deleted $numRemoved1 file(s) from $dir");
 
 		//if any css/js file from assets cache is deleted, then invalidate the whole pages cache
 		//since cached pages files could point to the just deleted css/js file
@@ -918,40 +969,45 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Generate Created Date for css/js files and deliver back the data stream.
+	 * Generate Created date for css/js files and deliver back the data stream.
 	 *
-	 * @param  string   $data   The minimized code
-	 * @return string           The minimized code with generation information
+	 * @param  string $data The minimized code
+	 * @return string The minimized code with generation information
 	 */
 	private static function _generatorInformation($data) {
-		return (!empty($data)) ? '/** Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . static::getModuleInfo()['version'] . ' **/' . PHP_EOL . $data : '';
+		$info = static::getModuleInfo();
+		$version = wire()->sanitizer->text($info['version'] ?? '');
+		//return (!empty($data)) ? '/** Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . $version . ' **/' . PHP_EOL . $data : '';
+		return (!empty($data)) ? '/** Generated: ' . date('r') . ' // Powered by AIOM+ v' . $version . ' **/' . PHP_EOL . $data : '';
 	}
 
 	/**
-	 * Generate Created Date for html files and deliver back the data stream.
+	 * Generate Created date for html files and deliver back the data stream.
 	 *
 	 * @param  string   $data   The minimized code
 	 * @return string           The minimized code with generation information
 	 */
 	private static function _generatorInformationHtml($data) {
-		return (!empty($data)) ? $data.PHP_EOL.'<!-- Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . static::getModuleInfo()['version'] . ' -->' : '';
+		$info = static::getModuleInfo();
+		$version = wire()->sanitizer->text($info['version'] ?? '');
+		//return (!empty($data)) ? $data.PHP_EOL.'<!-- Generated: '.date('l, jS \of F Y, H:i:s').' // Powered by AIOM+ v' . $version . ' -->' : '';
+		return (!empty($data)) ? $data . PHP_EOL . '<!-- Generated: ' . date('r') . ' // Powered by AIOM+ v' . $version . ' -->' : '';
 	}
 
 	/**
-	 * Create a unique file name, of the files to be combined, based on the
-	 * last modification.
+	 * Create a unique file name of the files to be combined.
 	 *
-	 * @param  array    $files   An array of all files to be combined.
-	 * @param  string   $prefix  The prefix of the generated cache file.
-	 * @param  string   $ext     The file extension of the generated cache file.
-	 * @return string            The unique file name of the cache file.
+	 * @param array<int, array{
+	 *     absolute_path: string,
+	 *     last_modified: int,
+	 *     file_extension: string
+	 * }> $files File-info entries returned by _fileArray().
+	 * @param string $prefix Prefix of the generated cache file e.g. "css_", "js_").
+	 * @param string $ext File extension of the generated cache file (e.g. ".css", ".js").
+	 * @return string Unique cache-file name, including prefix and extension, with an optional "_dev" suffix.
 	 */
 	private static function _getCacheName($files, $prefix = 'css_', $ext = '.css') {
-
-		// Initialize timestamp variable.
 		//$_timestamp = 0;
-
-		// Calculate timestamp of all files
 		//foreach ($files as $file) {
 			//$_timestamp = ($_timestamp + $file['last_modified']); //original
 
@@ -963,9 +1019,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			//$_timestamp += (int) ($file['last_modified'] + hexdec(md5(basename($file['absolute_path']))));
 		//}
 
-		// Create a unique MD5 file name with the specified prefix.
-		//return (self::$developmentMode !== true) ? $prefix.md5($_timestamp).$ext : $prefix.md5($_timestamp).'_dev'.$ext;
-
 		//alternative
 		//https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/issues/64#issuecomment-360468349
 		$hash = md5(print_r($files, true));
@@ -973,72 +1026,128 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Check if a file exists. If so, write the absolute path and the time
-	 * stamp of the last modification to an array.
+	 * Builds an array of file-info entries for the given asset files.
 	 *
-	 * @param  array $asset_files   An array of paths to the files.
-	 * @return array                An array of absolute paths and modification
-	 *                              timestamps of the files.
+	 * @param array<int, string|array{
+	 *     loadOn?: string,
+	 *     files?: string|array<int, string>
+	 * }> $asset_files List of asset file paths or conditional-loading rules
+	 * @param string|array<int, string> $extension Allowed file extension(s)
+	 * @return array<int, array{
+	 *     absolute_path: string,
+	 *     last_modified: int,
+	 *     file_extension: string
+	 * }>
 	 */
 	private static function _fileArray($asset_files, $extension = '.css') {
-
-		// Initialize allowed extension array, current page id and files array.
-		$extension       = is_array($extension) ? $extension : [$extension];
+		/* $asset_files =
+		 *   - ['css/normal.css'],
+		 *   - ['css1.css', 'css2.css'],
+		 *   - [
+		 *       ['loadOn' => 'template=basic-page', 'files' => ['css/one.css', 'css/two.css']]
+		 *     ]
+		 */
+		$extension = is_array($extension) ? $extension : [$extension];
 		$current_page_id = wire()->page->id;
-		$_asset_files    = [];
+		$_asset_files = [];
 
-		// Check each file on existence and remove paths to prevent from directory traversal attacks.
 		foreach($asset_files as $_asset_file) {
-			// check if file exists
-			// if not show error and continue
-			//https://github.com/FlipZoomMedia/ProcessWire-AIOM-All-In-One-Minify/pull/57/commits/891484b48b38c9df97609250760eef63cc71bd0d
-			//if(!is_file($_asset_file)) {
-				//$msg = wire()->config->paths->templates . $_asset_file . ' does not exist';
-				//self::_log($msg);
-				//continue;
-			//}
 
-			// Conditional loading
-			if(is_array($_asset_file) AND isset($_asset_file['loadOn']) AND isset($_asset_file['files'])) {
-
-				// Find all page ids based on the passed selector.
-				$conditional_pages = wire()->pages->find($_asset_file['loadOn'])->explode('id');
-
-				// Check if current page matched the conditional page id.
-				if(in_array($current_page_id, $conditional_pages)) {
-					if(is_array($_asset_file['files'])) {
-						foreach ($_asset_file['files'] as $__asset_file) {
-							array_push($_asset_files, self::_getFileInfoArray($__asset_file, $extension));
-						}
-					} else {
-						array_push($_asset_files, self::_getFileInfoArray($_asset_file['files'], $extension));
+			// check for conditional loading (loadOn) find all page ids based on the passed selector
+			if(is_array($_asset_file) && isset($_asset_file['loadOn'], $_asset_file['files'])) {
+				$conditional_pages = wire()->pages->find($_asset_file['loadOn'])->explode('id'); //findIDs() introduced in PW 3.0.133
+				if(in_array($current_page_id, $conditional_pages, true)) {
+					$files = is_array($_asset_file['files']) ? $_asset_file['files'] : [$_asset_file['files']];
+					foreach ($files as $__asset_file) {
+						$_asset_files[] = self::_getFileInfoArray($__asset_file, $extension);
 					}
 				}
-
-			// No condition, always load.
-			} else {
-				array_push($_asset_files, self::_getFileInfoArray($_asset_file, $extension));
+			// No condition, always load
+			} else if(is_string($_asset_file)) {
+				$_asset_files[] = self::_getFileInfoArray($_asset_file, $extension);
 			}
+
 		}
 
-		// Return array with all valid file paths and timestamps.
-		return $_asset_files;
+		// Return array with valid file paths and timestamps without null or ampty array entries
+		return array_values(array_filter($_asset_files, fn($val) => !is_null($val)));
 	}
 
 	/**
-	 * ------------------------------------------------------------------------
-	 * Create an array with absolute path, last modify date and file extension.
-	 * ------------------------------------------------------------------------
-	 * @param  string $_file        Asset file
-	 * @param  array  $extension    Allowed file extensions
-	 * @return array
+	 * Creates a file-info record with absolute path, last-modified timestamp,
+	 * and file extension. Returns null if the file does not exist, is remote
+	 * and unavailable, or does not match allowed extensions.
+	 *
+	 * @param string $_file path (or URL) to the asset file.
+	 * @param array<int,string> $extension Allowed file extensions.
+	 *
+	 * @return array{
+	 *     absolute_path: string,
+	 *     last_modified: int,
+	 *     file_extension: string
+	 * }|null
 	 */
 	private static function _getFileInfoArray($_file, $extension) {
-		$return = [];
+
 		$config = wire()->config;
 
-		//MP leave just filename, remove everything after ?, tipicaly used for cache busting eg. file.css?v=2.0.1
-		$_file = explode('?', $_file)[0];
+		// remove cache-busting parameters (?v=1.2.3)
+		$cutPos = strcspn($_file, '?#');
+		if ($cutPos !== strlen($_file)) {
+			$_file = substr($_file, 0, $cutPos);
+		}
+
+		$isRemote = self::_isRemote($_file);
+
+		if(strpos($_file, '/') === 0) {
+			// absolute path, join with doc root
+			$_path = rtrim($config->paths->root, '/') . $_file;
+		} elseif ($isRemote && self::_checkRemoteFileAccess($_file)) {
+			// remote file must be treated as existing
+			// use max_cache_lifetime as a placeholder because filemtime() doesn't work with http requests
+			return [
+				'absolute_path'  => $_file,
+				'file_extension' => pathinfo($_file, PATHINFO_EXTENSION),
+				'last_modified'  => time() - (int) self::$configData['max_cache_lifetime']
+			];
+		} else {
+			// relative path to templates dir
+			$_path = (self::$configData['directory_traversal'] != 1)
+							? str_ireplace(['../', './', '%2e%2e%2f', '..%2F'], '', $config->paths->templates . $_file)
+							: $config->paths->templates . $_file;
+		}
+
+		// File must exist locally
+		if (!$isRemote && !file_exists($_path)) {
+			self::_log("ERROR: $_path does not exist");
+			return null;
+		}
+
+		// Extension must match allowed list
+		if (!self::_has_needle($_path, $extension)) {
+			self::_log("ERROR: invalid extension for $_path");
+			return null;
+		}
+
+		clearstatcache();
+
+		return [
+			'absolute_path'  => $_path,
+			'file_extension' => pathinfo($_path, PATHINFO_EXTENSION),
+			'last_modified'  => filemtime($_path) ?: time(),
+		];
+}
+
+/*
+	private static function _getFileInfoArrayOld($_file, $extension) {
+		$config = wire()->config;
+		$return = null;
+
+		//MP leave just filename, remove everything after ? and #, tipicaly used for cache busting eg. file.css?v=2.0.1
+		$cutPos = strcspn($_file, '?#');
+		if ($cutPos !== strlen($_file)) {
+			$_file = substr($_file, 0, $cutPos);
+		}
 
 		$isRemote = self::_isRemote($_file);
 
@@ -1046,11 +1155,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		// Check existence and whether there is internal/external source.
 		//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/bd6217545a46f64478577f68a8e22e42cf987278
 		if(strpos($_file, '/') === 0) {
+			// absolute, join with doc root
 			$_path = rtrim($config->paths->root, '/') . $_file;
 		} else if($isRemote && self::_checkRemoteFileAccess($_file)) { //external resource
 			//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/6a3b5570c01df4776dafa6e2112fa80e61dfcb04
 			// we use max_cache_lifetime as a placeholder because filemtime() doesn't work with http requests
-			$return['last_modified'] = time() - self::$configData['max_cache_lifetime'];
+			$return['last_modified'] = time() - (int) self::$configData['max_cache_lifetime'];
 			$_path = $_file;
 		} else {
 			$_path = (self::$configData['directory_traversal'] != 1) ? str_ireplace(['../', './', '%2e%2e%2f', '..%2F'], '', $config->paths->templates . $_file) : $config->paths->templates . $_file;
@@ -1065,7 +1175,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		//if(file_exists($_path) AND !stristr($_path, '//') AND self::_stristr_array_needle($_path, $extension)) {
 		//if(file_exists($_path) AND self::_stristr_array_needle($_path, $extension)) {
 		//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/6a3b5570c01df4776dafa6e2112fa80e61dfcb04
-		if(self::_stristr_array_needle($_path, $extension)) {
+		if(self::_has_needle($_path, $extension)) {
 			clearstatcache();
 
 			// Return information array
@@ -1074,31 +1184,40 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			//        'file_extension' => pathinfo($_path, PATHINFO_EXTENSION)];
 			$return['absolute_path'] = $_path;
 			$return['file_extension'] = pathinfo($_path, PATHINFO_EXTENSION);
-			if(!isset($return['last_modified'])) $return['last_modified'] = filemtime($_path);
-			return $return;
+			if(!isset($return['last_modified'])) $return['last_modified'] = (int) filemtime($_path);
 		}
+
+		return $return;
 	}
+*/
 
 	/**
-	 * Check if external datasource is available
+	 * Check if external datasource is available.
 	 *
+	 * @param string $url
 	 * @return bool
 	 */
 	private static function _checkRemoteFileAccess($url) {
-		$file_headers = @get_headers($url);
-		if($file_headers !== false && preg_match('/200/', $file_headers[0])) return true;
+		/** @var \ProcessWire\WireHttp $http */
+		$http = new WireHttp();
+		$status = $http->status($url);
 
-		$error = "ERROR: Connection to external datasource failed: '$url'";
-		if($file_headers) $error .= " ($file_headers[0])";
-		//throw new WireException($error);
-		self::_log($error);
+		// Accept 2xx and 3xx
+		if($status >= 200 && $status < 400) {
+			return true;
+		}
+
+		self::_log("ERROR: Connection to external datasource failed: '$url' (HTTP $status)");
 		return false;
 	}
 
 	/**
-	 * Create an array with the number and the size of the assets (css/js files) cached data.
+	 * Returns the number of cache files and their size from /site/assets/aiom/
 	 *
-	 * @return array Number and size of the cache data
+	 * @return array{
+	 *    numberOfFiles: string,
+	 *    bytesTotal: string
+	 * }
 	 */
 	private static function _getNumberOfAssetsCacheFiles() {
 
@@ -1106,11 +1225,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$_numberOfFiles = $_bytesTotal = 0;
 
 		if(!is_dir($dir)) wireMkdir($dir);
-		$_cacheFiles = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
+		$_cacheFiles = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
 
 		// Number all the data together
 		foreach($_cacheFiles as $_cacheFile) {
-			if(is_file($_cacheFile)) {
+			/** @var SplFileInfo $_cacheFile */
+			if($_cacheFile->isFile()) {
 				$_numberOfFiles++;
 				$_bytesTotal += $_cacheFile->getSize();
 			}
@@ -1120,9 +1240,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Create an array with the number and the size of the pages cached data.
+	 * Returns the number of cache files and their size from /site/assets/cache/Page/
 	 *
-	 * @return array Number and size of the cache data
+	 * @return array{
+	 *    numberOfPages: string,
+	 *    numberOfFiles: string,
+	 *    bytesTotal: string
+	 * }
 	 */
 	private static function _getNumberOfPagesCacheFiles() {
 
@@ -1130,14 +1254,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$_numberOfFiles = $_numberOfPages = $_bytesTotal = 0;
 
 		if(is_dir($dir)) {
-			$_dir = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
-			$_cacheFiles = new RecursiveIteratorIterator($_dir);
+			$_cacheFiles = self::_getDirContents($dir);
 
 			foreach($_cacheFiles as $_cacheFile) {
-				if(is_file($_cacheFile)) {
-					$_numberOfFiles++;
-					$_bytesTotal += $_cacheFile->getSize();
-				}
+				$_numberOfFiles++;
+				$_bytesTotal += @filesize($_cacheFile);
 			}
 
 			$_numberOfPages = count(scandir($dir)) - 2;
@@ -1147,38 +1268,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Create an array with the number and the size of the aiom cached data.
+	 * Returns the number of cache files and their size from /site/assets/cache/aiom/
 	 *
-	 * @param bool $delete delete the file if true
-	 * @return array Number and size of the page cache data
-	 */
-	private static function _getNumberOfAiomCacheFilesOld($delete = false) {
-
-		$dir = self::$aiomCacheDir;
-		$_numberOfFiles = $_bytesTotal = 0;
-
-		if(is_dir($dir)) {
-			$_dir = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
-			$_cacheFiles = new RecursiveIteratorIterator($_dir);
-
-			foreach($_cacheFiles as $_cacheFile) {
-				if(is_file($_cacheFile) && $_cacheFile->getFilename() != 'aiom.enabled') {
-					$_numberOfFiles++;
-					$_bytesTotal += $_cacheFile->getSize();
-					if($delete) @unlink($_cacheFile);
-				}
-			}
-
-		};
-
-		return ['numberOfFiles' => number_format($_numberOfFiles), 'bytesTotal' => self::_wireBytesStr($_bytesTotal)];
-	}
-
-	/**
-	 * Create an array with the number and the size of the aiom cached data.
-	 *
-	 * @param bool $delete delete the file if true
-	 * @return array Number and size of the page cache data
+	 * @param bool $delete Whether to delete the cache files while counting.
+	 * @return array{
+	 *    numberOfFiles: string,
+	 *    bytesTotal: string
+	 * }
 	 */
 	private static function _getNumberOfAiomCacheFiles($delete = false) {
 
@@ -1189,9 +1285,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$_cacheFiles = self::_getDirContents($dir);
 
 			foreach($_cacheFiles as $_cacheFile) {
-				if(/*is_file($_cacheFile) && */pathinfo($_cacheFile, PATHINFO_FILENAME) != 'aiom.enabled') {
+				if(pathinfo($_cacheFile, PATHINFO_BASENAME) !== 'aiom.enabled') {
 					$_numberOfFiles++;
-					$_bytesTotal += filesize($_cacheFile);
+					$_bytesTotal += @filesize($_cacheFile);
 					if($delete) @unlink($_cacheFile);
 				}
 			}
@@ -1203,13 +1299,17 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Create a list of files recursively. PHP 7 and up.
 	 *
-	 * @param string $dir directory name
+	 * @param string $dir Directory path
+	 * @return \Generator<string> Yields absolute file paths
 	 */
 	private static function _getDirContents($dir) {
 		$files = array_diff(@scandir($dir), ['.', '..']);
 
 		foreach($files as $key => $value) {
-			$path = realpath($dir.DIRECTORY_SEPARATOR.$value);
+			$path = $dir . DIRECTORY_SEPARATOR . $value;
+			if (is_link($path)) continue; // skip symlinks to avoid loops
+			$path = realpath($path);
+			if ($path === false) continue; // entry might have disappeared
 			if(!is_dir($path)) {
 				yield $path;
 			} else {
@@ -1219,31 +1319,14 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		}
 	}
 
-	/* old version
-	private static function _getDirContents($dir, &$results = []){
-    $files = scandir($dir);
-    foreach($files as $key => $value){
-        $path = realpath($dir.DIRECTORY_SEPARATOR.$value);
-        if(is_dir($path) == false) {
-            $results[] = $path;
-        }
-        else if($value != "." && $value != "..") {
-            _getDirContents($path, $results);
-            if(is_dir($path) == false) {
-                $results[] = $path;
-            }
-        }
-    }
-    return $results;
-	}
-	*/
-
 	/**
 	 * Empty /site/assets/aiom/ (cs/jss files cache) AND /site/assets/cache/Page/ (template cache)
-	 * if you click Clear Cache button in Minimize tab
-	 * url: &cache=clear
+	 * if you click Empty cache button in Minimize tab.
+	 * Triggered by: &cache=clear
+	 *
+	 * @return void
 	 */
-	protected static function ClearAssetsCacheFromBackend() {
+	private static function clearAssetsCacheFromBackend() {
 		// When assets cache dir /site/assets/aiom/, where minimized js/css files reside, is cleared,
 		// you also have to clear the pages cache dir /site/assets/cache/Page/ where cached
 		// pages (created by PageRender module) are stored, since referenced assets files no longer exist.
@@ -1252,61 +1335,63 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		// cache.json file and also containing folder (maintenance).
 
 		$numRemoved = self::_clearAssetsCache(true);
-		wire()->message(sprintf(__("Deleted %s cache files."), $numRemoved));
-		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache files."), $numRemoved)));
+		wire()->message(sprintf(__("Deleted %s cache file(s)."), $numRemoved));
+		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache file(s)."), $numRemoved)));
 
-		// Redirect to module configuration.
-		$url = wire()->page->httpUrl . 'edit?name=' . wire()->input->get('name') . '&collapse_info=1';
+		// redirect to module configuration.
+		$url = wire()->modules->getModuleEditUrl(wire()->input->get('name'));
 		wire()->session->redirect($url);
 	}
 
 	/**
 	 * Empty /site/assets/cache/aiom/ (site structure with cache.json files)
-	 * when you click "Empty cache" button in Caching tab
-	 * url: &pagecache=clear
+	 * when you click "Empty cache" button in Caching tab.
+	 * Triggered by: &pagecache=clear
+	 *
+	 * @return void
 	 */
-	protected static function ClearAiomCacheFromBackend() {
+	private static function clearAiomCacheFromBackend() {
 		$numRemoved = self::_clearAiomCache();
 
-		//delete pages cache too?
-		$numRemoved = $numRemoved + self::_clearPagesCache();
-		wire()->message(sprintf(__("Deleted %s cache files in total."), $numRemoved));
-		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache files in total."), $numRemoved)));
+		// delete pages cache too
+		$numRemoved += self::_clearPagesCache();
+		wire()->message(sprintf(__("Deleted %s cache file(s) in total."), $numRemoved));
+		//wire()->notices->add(new NoticeMessage("AIOM+: " . sprintf(__("Deleted %s cache file(s) in total."), $numRemoved)));
 
-		// Redirect to module configuration.
-		$url = wire()->page->httpUrl . 'edit?name=' . wire()->input->get('name') . '&collapse_info=1';
+		// redirect to module configuration
+		$url = wire()->modules->getModuleEditUrl(wire()->input->get('name'));
 		wire()->session->redirect($url);
 	}
 
 	/**
 	 * Check if the current template requires SSL
 	 *
-	 * @param [type] $event
+	 * @param HookEvent $event
+	 * @return void
 	 */
-	protected static function CheckSSL($event) {
-		self::$templateUseSSL = ($event->object->template->https === 1) ? true : false;
+	protected function _checkSSL($event) {
+		self::$templateUseSSL = ((int) $event->object->template->https === 1);
 	}
 
 	/**
 	 * Get template files for a page.
 	 *
 	 * @param Page $page
-	 * @return array of page template files (full path) or empty array
+	 * @return array<int, string> List of page template files (full path) or empty array
 	 */
-	protected static function _getTemplateFiles($page) {
+	protected function _getTemplateFiles($page) {
 
 		if(self::$configData['template_files'] === '') return [];
 
 		//return if there is no cache file present for the rendered page
 		$cacheFile = self::_getCacheFileObject($page);
-		if(!$cacheFile) return [];
-
 		$cacheFileName = (string) $cacheFile;
 		$cacheFileTimestamp = @filemtime($cacheFileName);
 		if($cacheFileTimestamp === false) return [];
 
-		$_tplFiles = explode("\n", self::$configData['template_files']);
+		$_tplFiles = explode("\n", (string) self::$configData['template_files']);
 		$config = wire()->config;
+		/** @var \ProcessWire\Template $template */
 		$template = $page->template;
 		$templatesDir = $config->paths->templates;
 		$tplFiles = [];
@@ -1324,34 +1409,30 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		}
 
 		//remove empty keys
-		$tplFiles = array_filter($tplFiles, 'strlen');
+		return array_filter($tplFiles);
 
-		return $tplFiles;
 	}
 
 	/**
 	 * Check if the template files (primary, append, prepend) are newer than
 	 * cached file. If so, delete cache file.
 	 *
-	 * @param [type] $event
+	 * @param HookEvent $event
+	 * @return void
 	 */
-	protected function checkTemplateFiles($event) {
+	protected function _checkTemplateFiles($event) {
 
 		//return if template caching is off for all templates
 		if(!is_dir(self::$pagesCacheDir)) return;
 
-		$page = $event->object;
-		//$template = $page->template;
-		//if($template->name === 'admin' || $template->cache_time < 1 || self::$configData['template_files'] == '') return;
-
 		clearstatcache();
 
+		/** @var \ProcessWire\Page $page */
+		$page = $event->object;
 		$tplFiles = self::_getTemplateFiles($page);
 		if(empty($tplFiles)) return;
 
 		$cacheFile = self::_getCacheFileObject($page);
-		if(!$cacheFile) return;
-
 		$cacheFileName = (string) $cacheFile;
 		$cacheFileTimestamp = @filemtime($cacheFileName);
 		if($cacheFileTimestamp === false) return;
@@ -1367,8 +1448,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				break;
 			}
 		}
-
-		return $tplFiles;
 	}
 
 	/**
@@ -1382,7 +1461,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		// Use a CNAME DNS record. If empty, the default URL will be used.
 		// Format: http(s)://static.mydomain.com (without a concluding slash)
 
-		$cacheDir = wire()->config->urls->assets . self::cacheDir;
+		$cacheDir = wire()->config->urls->assets . self::CACHEDIR;
 		if(self::$templateUseSSL === true) {
 			return self::$configData['domain_sharding_ssl'] . $cacheDir;
 		} else {
@@ -1391,92 +1470,99 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Validate the numeric value for the maximum cache lifetime.
+	 * Validate the value for the maximum cache lifetime.
 	 *
-	 * @param  integer/string $value
-	 * @return integer
-	 */
-	private function _sanitizeNumericCacheTime($value) {
-		$value = intval($value);
-		if(!is_int($value) || $value < self::min_cache_lifetime || $value > self::max_cache_lifetime) {
-			wire()->warning(sprintf(__("Invalid cache lifetime %s, the default value of %s will be used."), $value, self::default_cache_lifetime));
-			$value = self::default_cache_lifetime;
-		}
-		return $value;
-	}
-
-	/**
-	 * Checks if the string is a valid URL.
-	 *
-	 * @param  string $url The URL to be checked
+	 * @param string $value
 	 * @return string
 	 */
+	private function _sanitizeNumericCacheTime($value) {
+		$v = intval($value);
+		if($v < self::MIN_CACHE_LIFETIME || $v > self::MAX_CACHE_LIFETIME) {
+			wire()->warning(sprintf(__("Invalid cache lifetime %s, the default value of %s will be used."), $v, self::DEFAULT_CACHE_LIFETIME));
+			$v = self::DEFAULT_CACHE_LIFETIME;
+		}
+		return (string) $v;
+	}
+
+
+	/**
+	* Sanitizes a URL-like string and removes trailing slash.
+	*
+	* @param string $url Input URL string
+	* @return string Sanitized URL without trailing slash
+	*/
 	private function _validateURL($url) {
 		$_url = wire()->sanitizer->url($url);
-		$_url = (substr($_url, -1) == '/') ? substr($_url, 0, strlen($_url) - 1) : $_url;
-		return $_url;
+		//if (!filter_var($url, FILTER_VALIDATE_URL)) return '';
+		return rtrim($_url, '/');
 	}
 
 	/**
 	 * Checks if the url is absolute or relative.
 	 *
 	 * @param  string $url The URL to be checked
-	 * @return boolean
+	 * @return bool
 	 */
 	private static function _isRemote($url) {
-		if(strpos($url, '//') >= max(strpos($url, '.'), strpos($url, '/')) || strpos($url, ':') !== false) return true; //absolute
-		return false; //relative
+		$u = ltrim($url);
+		if (strpos($u, '//') === 0) return true; // protocol-relative (must be at start)
+		if (preg_match('/^[a-z]:[\/\\\\]/i', $u)) return false; // Windows drive path is local, not remote
+		return (bool) preg_match('/^[a-z][a-z0-9+\-.]*:/i', $u); // RFC 3986
 	}
 
 	/**
 	 * Checks if ".min" or "-min" at the end of the file name exists.
 	 *
 	 * @param  string  $absolute_path Path with filename
-	 * @return boolean
+	 * @return bool
 	 */
 	private static function _isMinimized($absolute_path) {
-		return (preg_match('/^([a-z0-9\-\_\.]*)(\.|\-)?min\.(js|css){1}$/i', strtolower(basename($absolute_path))) === 0) ? false : true;
+		//return (preg_match('/^([a-z0-9\-\_\.]*)(\.|\-)?min\.(js|css){1}$/i', strtolower(basename($absolute_path))) === 0) ? false : true;
+		// Match: start or [.-], then min, then .js/.css, at the end
+		return preg_match('/(?:^|[.-])min\.(?:js|css)$/', strtolower(basename($absolute_path))) === 1;
 	}
 
 	/**
-	 * Check if an array with given extension matches in a string
+	 * Check if an array with given extension matches in a string.
 	 *
-	 * @param  string $haystack     Haystack to search
-	 * @param  array  $arrayNeedles Array with extension to search
-	 * @return boolean
+	 * @param string $haystack Haystack to search
+	 * @param array<int, string|null> $arrayNeedles Array with extension to search
+	 * @return bool
 	 */
-	private static function _stristr_array_needle($haystack, $arrayNeedles) {
-		foreach($arrayNeedles as $needle){
-			if(stristr($haystack, $needle)) return true;
+	private static function _has_needle($haystack, $arrayNeedles) {
+		foreach($arrayNeedles as $needle) {
+			$needle = (string) $needle;
+			if($needle !== '' && stripos($haystack, $needle) !== false) return true;
 		}
 		return false;
 	}
 
 
 	/**
-	 * Minify HTML but protect textareas, code fields and conditional comments
-	 * for Internet Explorer. Optional minify inline stylesheets and javascript.
+	 * Minify HTML but protect textareas, code fields and conditional comments.
+	 * Optional minify stylesheets and javascript.
 	 *
-	 * @param  [type] $event
-	 * @return [type]
+	 * @param  HookEvent $event
+	 * @return void
 	 */
 	protected function HTML($event) {
 		//self::_log("HTML() start");
 		//bd('HTML() start');
 		//$timer = Debug::timer();
 
-		// Don't process the admin pages
-		//if($event->object->template == 'admin' OR self::$enableHTMLMinify !== true OR self::$developmentMode === true) return;
-		//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/b6ad1495f781ed1e9c0cc70e4d91d07b56855f8d
+		/** @var \ProcessWire\Page $page */
 		$page = $event->object;
+		/** @var string $html */
 		$html = $event->return;
-		$config = $event->wire()->config;
-
+		$config = wire()->config;
+		$isDev = self::$configData['development_mode'] == 1;
+		//https://github.com/kixe/ProcessWire-AIOM-All-In-One-Minify/commit/b6ad1495f781ed1e9c0cc70e4d91d07b56855f8d
+		$skipMinify = (bool) $page->skip_minify;
 		$htmlChanged = false;
-		$skipMinify = ($page->skip_minify) ? true : false;
 
-		if((self::$configData['css_minify'] == 1 OR self::$configData['js_minify'] == 1) AND self::$configData['development_mode'] != 1 AND $skipMinify === false) {
-			require_once($config->paths->AllInOneMinify.'autoload.php');
+		// Detect js/css files in html source and minify them
+		if(!$isDev && !$skipMinify && (self::$configData['css_minify'] == 1 || self::$configData['js_minify'] == 1)) {
+			require_once($config->paths->AllInOneMinify . 'autoload.php');
 			$doc = new \voku\helper\HtmlDomParser($html);
 			$cdir = self::$assetsCacheDir;
 			$tdir = $config->urls->templates;
@@ -1485,24 +1571,22 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				$dom = $doc->find('link[rel="stylesheet"]');
 				foreach($dom as $link) {
 					$path = $link->href;
-					//MP skip over files already in cache
+					// skip over files already in cache and ignore remote files
 					if(strpos($path, $cdir) !== false) continue;
-					//MP ignore remote files
 					if(self::_isRemote($path)) continue;
-					$path = str_replace($tdir, '', $path);
+					//$path = str_replace($tdir, '', $path);
 					$link->href = self::CSS($path); //removes Page cache
 				}
 			}
 
-			if(self::$configData['js_minify']) {
+			if(self::$configData['js_minify'] == 1) {
 				$dom = $doc->find('script[src]');
 				foreach($dom as $link) {
 					$path = $link->src;
-					//MP skip over files already in cache
+					// skip over files already in cache and ignore remote files
 					if(strpos($path, $cdir) !== false) continue;
-					//MP ignore remote files
 					if(self::_isRemote($path)) continue;
-					$path = str_replace($tdir, '', $path);
+					//$path = str_replace($tdir, '', $path);
 					$link->src = self::JS($path); //removes Page cache
 				}
 			}
@@ -1511,33 +1595,47 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$htmlChanged = true;
 		}
 
-		//if($this->html_minify === "html_minify_original") {
-		if(self::$configData['html_minify'] == 1 AND self::$configData['development_mode'] != 1 AND $skipMinify === false) {
-			$html = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $html);
-			$html = preg_replace('/>\s+</s', '><', $html);
+		if(!$isDev && !$skipMinify && self::$configData['html_minify'] == 1) {
+			//original AIOM
+			//$html = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $html);
+			//$html = preg_replace('/>\s+</s', '><', $html);
+			//removes tags inside <pre>
+
+			//hybrid approach
+			//if (!preg_match('~<(pre|code|textarea|svg)[\s>]~i', $html)) {
+			//	$html = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $html);
+			//	$html = preg_replace('/>\s+</s', '><', $html);
+			//}
+
+			//more eficient/safe alternative, but slower
+			//require_once($config->paths->AllInOneMinify . 'autoload.php');
+			//$htmlMin = new \voku\helper\HtmlMin();
+			//$htmlMin->doRemoveOmittedHtmlTags(false); //to preserve </body>
+			//$html = $htmlMin->minify($html);
+
+			$html = self::_minifyHTML($html);
+
 			$htmlChanged = true;
 			$html = self::_generatorInformationHtml($html);
 			//self::_log('html minimized');
 			//bd('HTML() html minimized');
-
-			//more eficient alternative, but slower
-			/*require_once($config->paths->AllInOneMinify.'autoload.php');
-			$htmlMin = new \voku\helper\HtmlMin();
-			$htmlMin->doRemoveOmittedHtmlTags(false); //to preserve </body>
-			$html = $htmlMin->minify($html);*/
 		}
 
 		if(self::$configData['cache_enable'] == 1 && self::_isPageCachable($page)) {
 			//bd('HTML() page is cachable');
-			if(self::_createCache($page, $html)) $htmlChanged = true;
+			self::_createCache($page);
 		}
 
+		/** @var \ProcessWire\Template $template */
+		$template = $page->template;
+
 		//if template has caching enabled, pageRender method already saved the cache file
-		if($htmlChanged && $page->template->cache_time > 0) {
+		if($htmlChanged && $template->cache_time > 0) {
 			//wire()->session->PageRenderNoCachePage == $page->id
 			$cacheFile = self::_getCacheFileObject($page);
-			$cacheFile->save($html);
-			if(self::debug) self::_log((string) $cacheFile . " updated");
+			@$cacheFile->save($html);
+			/** @phpstan-ignore if.alwaysTrue */
+			if(self::DEBUG) self::_log((string) $cacheFile . " updated");
 			//bd('HTML() '. (string) $cacheFile . ' updated');
 		}
 
@@ -1546,19 +1644,123 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		//echo "timer:" . Debug::getSavedTimer($timer);
 	}
 
+	/**
+	 * Minify html and preserve framework markers
+	 *
+	 * @author Gemini & Copilot :-)
+	 * @param string $html
+	 * @return string
+	 */
+	protected function _minifyHTML($html) {
+		// protect the content inside <script>, <textarea>, <pre>, <code>
+		// and inside framework markers eg. <!--vue-if-->
+		$patterns = [
+			'<(script|textarea|pre|code)\b[^>]*>.*?<\/\1>',
+			'<!--\s*(?:vue-|alpine-|svelte-|ko\s|__|\b@|#|slot-).*?-->',
+		];
+
+		// combine into one regex: /pattern1|pattern2/is
+		$patterns = '/' . implode('|', $patterns) . '/is';
+
+		//build the array of placeholders (shields) that will be protected from preg_replace
+		//eg. "<script>something...</script>" -> ["###AIOM_SHIELD_0###"]
+		$shields = [];
+		// Use ?? $html to fall back to the original string if regex fails
+		$htmlProc = preg_replace_callback($patterns, function($matches) use (&$shields) {
+			$token = "###AIOM_SHIELD_" . count($shields) . "###";
+			$shields[$token] = $matches[0];
+			return $token;
+		}, $html) ?? $html;
+
+		//minify the html
+		$minifyMap = [
+			'/<!--.*?-->/s' => '',   // strip comments
+			'/[ \t]{2,}/'  => ' ',   // Collapse horizontal whitespace
+			'/>\s+</'      => '><',  // Remove whitespace between tags
+			'/^\s+/m'      => '',    // Trim line starts
+			'/\s+$/m'      => '',    // Trim line ends
+		];
+		$htmlProc = (string) preg_replace(array_keys($minifyMap), array_values($minifyMap), $htmlProc);
+
+		//remove newlines only outside shielded parts
+		$htmlProc = (string) preg_replace("/(\r?\n|\r|\n)/", "", $htmlProc);
+
+		//replace the shields with the actual content
+		return !empty($shields) ? trim(strtr($htmlProc, $shields)) : trim($htmlProc);
+	}
 
 	/**
-	 * Render cache file in /site/assets/aiom/
+	 * Minifies CSS content by removing comments and unnecessary
+	 * whitespace, without affecting data URLs.
 	 *
-	 * @param  Page $page
-	 * @param  string &$html
-	 * @return bool false
+	 * @author Gemini & Copilot :-)
+	 * @param string $css
+	 * @return string
 	 */
-	protected function _createCache($page, &$html) {
+	private static function _minifyCSS($css) {
+		// remove comments except /*! ... */
+		$css = (string) preg_replace('~/\*(?!\!)(?:.|\n)*?\*/~', '', $css);
 
-		$dir = self::_getAiomCacheDir($page);
+		// normalize & collapse whitespace
+		$css = str_replace(["\r\n", "\r"], "\n", $css);
+		$css = (string) preg_replace('/\s+/', ' ', $css);
+
+		// remove spaces around common delimiters
+		$css = (string) preg_replace(
+			[
+				'/\s*{\s*/', '/\s*}\s*/', '/\s*;\s*/',
+				'/\s*:\s*/', '/\s*,\s*/', '/;}/',
+			], [
+				'{', '}', ';', ':', ',', '}'
+			], $css);
+
+		// remove the very last semicolon in any block
+		$css = str_replace(';}', '}', $css);
+
+		return trim($css);
+	}
+
+	/**
+	 * Minifies JavaScript by removing comments and superfluous
+	 * whitespace while preserving syntax-sensitive parts.
+	 *
+	 * @author Gemini & Copilot :-)
+	 * @param string $js
+	 * @return string
+	 */
+	 private static function _minifyJS($js) {
+		// Normalize line endings
+		$js = str_replace(["\r\n", "\r"], "\n", $js);
+
+		// Remove block comments (Keep /*! ... */)
+		$js = (string) preg_replace('~/\*(?!\!)(?:(?!\*/).)*\*/~s', '', $js);
+
+		// Only remove single-line comments that START at the line beginning
+		$js = (string) preg_replace('/^\s*\/\/.*$/m', '', $js);
+
+		// Collapse ONLY horizontal whitespace, keep newlines
+		$js = (string) preg_replace('/[ \t]+/', ' ', $js);
+
+		// Trim spaces at the start/end of each line
+		$js = (string) preg_replace('/^ +| +$/m', '', $js);
+
+		// 6. Collapse empty lines
+		$js = (string) preg_replace('/\n+/s', "\n", $js);
+
+		return trim($js);
+}
+
+
+	/**
+	 * Render cache file in /site/assets/cache/aiom/
+	 *
+	 * @param Page $page
+	 * @return void
+	 */
+	protected function _createCache($page) {
+
 		$cacheFile = self::_getCacheFile($page);
-		$file = $dir . 'cache.json'; // /site/assets/cache/aiom/one/page10/cache.json
+		$file = self::_getAiomCacheDir($page) . 'cache.json'; // /site/assets/cache/aiom/one/page10/cache.json
 
 		// convert array to json object and write to cache file
 		$json = json_encode($cacheFile, JSON_FORCE_OBJECT);
@@ -1568,31 +1770,30 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		if($result === false) {
 			self::_log("ERROR: create file $file failed");
-			//bd("_createCache() ERROR: create file $file failed");
 		} else {
 			//self::_log("$file created");
-			//bd("_createCache() $file created");
 		}
-
-		return false;
 	}
 
 	/**
 	 * Return aiom cache directory. If page is provided, then cache directory for the page is returned
 	 * and directory structure for the page url is created.
 	 *
-	 * @param Page|bool $page
+	 * @param Page|null $page
 	 * @return string
 	 */
-	protected function _getAiomCacheDir($page = false) {
+	protected function _getAiomCacheDir($page = null) {
 
 		// $page->path and $page->url starts with /
 		$cacheDir = rtrim(self::$aiomCacheDir, '/');
 
+		/** @var \ProcessWire\Page|null $page */
 		if($page && $page->id) {
 			//$cacheDir .= $page->path; // /subfolder/page/one/
 			$cacheDir .= $page->url;    // /page/one/
-			if($page->template->allowPageNum && $this->input->pageNum > 1) {
+			/** @var \ProcessWire\Template $template */
+			$template = $page->template;
+			if($template->allowPageNum && wire()->input->pageNum > 1) {
 				$cacheDir .= wire()->config->pageNumUrlPrefix . wire()->input->pageNum . '/';
 			}
 		}
@@ -1602,23 +1803,21 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$result = wireMkdir($cacheDir, true);
 			if($result) {
 				//self::_log("$cacheDir created");
-				//bd("_getAiomCacheDir() created $cacheDir");
 			} else {
 				self::_log("ERROR: $cacheDir create failed");
-				//bd("_getAiomCacheDir() $cacheDir create failed");
 			}
 		}
 		return $cacheDir;
 	}
 
 	/**
-	 * Return cacheFile object
+	 * Return CacheFile object
 	 *
 	 * @param Page $page
-	 * @return array
+	 * @return CacheFile
 	 */
 	protected function _getCacheFileObject($page) {
-
+		/** @var \ProcessWire\Template $template */
 		$template = $page->template;
 		$config = wire()->config;
 		$options = [
@@ -1632,32 +1831,37 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Return cache filename
+	 * Return cache filename.
 	 *
 	 * @param Page $page
-	 * @return array
+	 * @return array{
+	 *     0: string,
+	 *     1: int,
+	 *     2: int,
+	 *     3: string,
+	 *     4: array<int, string>
+	 * }
 	 */
 	protected function _getCacheFile($page) {
 
 		$_cacheFile = self::_getCacheFileObject($page);
-
 		$cacheFile = (string) $_cacheFile;
 		$cacheFileArr = (array) $_cacheFile;
-		$cacheTime = $cacheFileArr[chr(0).'*'.chr(0).'cacheTimeSeconds']; //private property
+		$cacheTime = $cacheFileArr[chr(0).'*'.chr(0).'cacheTimeSeconds']; //protected property
 		//should we get cache time from template?
 		//$cacheTime = (int) $page->template->cache_time;
+		//$cacheTime = (int) $page->template->cacheTime; this is an alias for cache_time
 		$cacheExpireTime = time() + $cacheTime;
 		$cacheExpireDate = date("Y-m-d H:i:s", $cacheExpireTime); //not used
 		$tplFiles = self::_getTemplateFiles($page);
 
-		$return = [];
-		$return[] = $cacheFile;       //eg. /site/assets/cache/Page/1/page2_1234.cache
-		$return[] = $cacheTime;       //eg. 3600
-		$return[] = $cacheExpireTime; //eg. 1583141543
-		$return[] = $cacheExpireDate; //eg. 2020-02-20 21:57:03
-		$return[] = $tplFiles;        //eg. /site/templates/basic-page.php
-
-		return $return;
+		return [
+			$cacheFile,       //eg. /site/assets/cache/Page/1/page2_1234.cache
+			$cacheTime,       //eg. 3600
+			$cacheExpireTime, //eg. 1583141543
+			$cacheExpireDate, //eg. 2020-02-20 21:57:03
+			$tplFiles         //eg. /site/templates/basic-page.php
+		];
 	}
 
 	/**
@@ -1671,7 +1875,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if(wire()->user->isLoggedin()) return false;
 		if(isset($_COOKIE['wire_challenge']) || isset($_COOKIE['wires_challenge'])) return false;
 		if(count($_GET) || count($_POST)) return false;
-		if($page->template->cache_time < 1) return false;
+		/** @var \ProcessWire\Template $template */
+		$template = $page->template;
+		if($template->cache_time < 1) return false;
 
 		return true;
 	}
@@ -1684,9 +1890,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string
 	 */
 	private static function _seconds2human($inputSeconds) {
+		$inputSeconds = (int)$inputSeconds;
+
 		$secondsInAMinute = 60;
-		$secondsInAnHour = 60 * $secondsInAMinute;
-		$secondsInADay = 24 * $secondsInAnHour;
+		$secondsInAnHour = 3600;
+		$secondsInADay = 86400;
 
 		// extract days
 		$days = floor($inputSeconds / $secondsInADay);
@@ -1717,6 +1925,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$out[] = "{$amount} " . self::_getUnit($u);
 		}
 
+		//if everything was zero (e.g., input was 0 or <1 sec), ensure "0 sec"
+		if (!$out) {
+			return '0 ' . self::_getUnit('seconds');
+		}
+
 		return implode(' ', $out);
 	}
 
@@ -1728,16 +1941,6 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string
 	 */
 	private static function _getUnit($key) {
-		/*units = [
-			'day' => __('day'),
-			'hour' => __('hour'),
-			'minute' => __('minute'),
-			'second' => __('second'),
-			'days' => __('days'),
-			'hours' => __('hours'),
-			'minutes' => __('minutes'),
-			'seconds' => __('seconds')
-		]*/
 		$units = [
 			'day' => __('day'),
 			'hour' => __('hour'),
@@ -1749,21 +1952,28 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			'seconds' => __('sec')
 		];
 
-		return array_key_exists($key, $units) ? $units[$key] : '';
+		return $units[$key] ?? '';
 	}
 
 	/**
-	 * Given a quantity of bytes, return readable string that refers to quantity in bytes, kB, MB, GB, etc.
+	 * Given a quantity of bytes, return readable string using 1024 steps and kB/MB labels (legacy).
+	 * Intentionally made simple.
 	 *
-	 * @param number $bytes
+	 * @param int $bytes
 	 * @return string
 	 */
-	 private static function _wireBytesStr($bytes) {
+	private static function _wireBytesStr($bytes) {
 		$label  = ['B', 'kB', 'MB', 'GB', 'TB', 'PB']; // 5 = (count($label) - 1
 		for ($i = 0; $bytes >= 1024 && $i < 5; $bytes /= 1024, $i++);
 		return round($bytes) . ' ' . $label[$i];
 	}
 
+	/**
+	 * Logs a message to the aiom.txt file.
+	 *
+	 * @param string $str Log message
+	 * @return void
+	 */
 	private static function _log($str) {
 		wire()->log->save('aiom', $str);
 	}
@@ -1771,8 +1981,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 }
 
 /**
- * ------------------------------------------------------------------------
  * Short-Syntax
- * ------------------------------------------------------------------------
  */
-class AIOM extends AllInOneMinify {}
+if (!class_exists('AIOM')) {
+	class AIOM extends AllInOneMinify {}
+}

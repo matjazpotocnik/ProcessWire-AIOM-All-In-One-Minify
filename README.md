@@ -129,7 +129,7 @@ the minified version. In manual mode, you call the API function in your template
 <a name='minimize-stylesheets-and-parse-less-files'></a>
 ## Minimize Stylesheets and parse LESS files manually ##
 
-Minimization of a single file.
+Minimization of a single file:
 
 ~~~html
 <!-- CSS Stylesheet -->
@@ -139,7 +139,7 @@ Minimization of a single file.
 <link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS('css/stylesheet.less'); ?>">
 ~~~
 
-Minimize multiple files into one file. You can even mix stylesheet and LESS files in the parsing/combining process!
+Minimize multiple files into one file, even mixing CSS and LESS:
 
 ~~~html
 <link rel="stylesheet" href="<?php echo \AllInOneMinify::CSS(array('css/file-1.css', 'css/file-2.less', 'css/file-3.css', 'css/file-4.less')); ?>">
@@ -176,18 +176,18 @@ body {
 }
 ~~~
 
-That's all. Pretty, hu? The complete documentation of LESS you can find at www.lesscss.org
+Find the complete documentation of LESS at www.lesscss.org
 
 <a name='minimize-javascripts'></a>
 ## Minimize Javascripts manually##
 
-Minimization of a single file.
+Minimization of a single file:
 
 ~~~html
 <script src="<?php echo \AllInOneMinify::JS('js/javascript.js'); ?>"></script>
 ~~~
 
-Minimize multiple files into one file.
+Minimize multiple files into one file:
 
 ~~~html
 <script src="<?php echo \AllInOneMinify::JS(array('js/file-1.js', 'js/file-2.js', 'js/file-3.js', 'js/file-4.js')); ?>"></script>

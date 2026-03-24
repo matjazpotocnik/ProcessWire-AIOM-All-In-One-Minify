@@ -1,48 +1,60 @@
-## Changelog ##
+## Changelog
+
+4.0.8
+
+* Update for PHP 8.4 in symfony\\css\_selectors
+* Bug fixes and code improvements
 
 4.0.7
-- Updated readme, fixed a typo in _getDirContents()
+
+* Updated readme, fixed a typo in \_getDirContents()
 
 4.0.6
-- Support for PHP 8.4 & some typos (Matjaž Potočnik)
+
+* Support for PHP 8.4 \& some typos (Matjaž Potočnik)
 
 4.0.5
-- Added support for config/template prepend/append file in caching (Matjaž Potočnik)
-- Fixed PHP 8.3 issue in less parser (Matjaž Potočnik)
+
+* Added support for config/template prepend/append file in caching (Matjaž Potočnik)
+* Fixed PHP 8.3 issue in less parser (Matjaž Potočnik)
 
 4.0.4
-- Reduce logging (Matjaž Potočnik)
+
+* Reduce logging (Matjaž Potočnik)
 
 4.0.3
-- Skip external assets in auto minimize mode without throwing an error (Matjaž Potočnik)
-- Bug fix (Matjaž Potočnik)
-- Updated readme, changelog (Matjaž Potočnik)
+
+* Skip external assets in auto minimize mode without throwing an error (Matjaž Potočnik)
+* Bug fix (Matjaž Potočnik)
+* Updated readme, changelog (Matjaž Potočnik)
 
 4.0.2
-- Bug fixes on install (Matjaž Potočnik)
+
+* Bug fixes on install (Matjaž Potočnik)
 
 4.0.1
-- Bug fixes (Matjaž Potočnik)
+
+* Bug fixes (Matjaž Potočnik)
 
 4.0.0
 
-- Added AIOM+ template caching (Matjaž Potočnik)
-- Added tabbed interface (Matjaž Potočnik)
-- Updated readme, changelog, usage (Matjaž Potočnik)
+* Added AIOM+ template caching (Matjaž Potočnik)
+* Added tabbed interface (Matjaž Potočnik)
+* Updated readme, changelog, usage (Matjaž Potočnik)
 
 3.2.9
 
-- Fixed less.php compatibility in PHP 7.4 (Matjaž Potočnik)
-- Updated html-min, simple_html_dom and css-selector (Matjaž Potočnik)
+* Fixed less.php compatibility in PHP 7.4 (Matjaž Potočnik)
+* Updated html-min, simple\_html\_dom and css-selector (Matjaž Potočnik)
 
 3.2.8
 
-- Fixed minify process when css/js files in html source has query strings (Matjaž Potočnik)
+* Fixed minify process when css/js files in html source has query strings (Matjaž Potočnik)
 
 3.2.6
 
-- Added options to automatically minimize JS and CSS files (Matjaž Potočnik)
-- Using the original HTML minimize algorithm instead of voku - it's faster (Matjaž Potočnik)
+* Added options to automatically minimize JS and CSS files (Matjaž Potočnik)
+* Using the original HTML minimize algorithm instead of voku - it's faster (Matjaž Potočnik)
 
 3.2.5
 
@@ -50,7 +62,7 @@
 
 3.2.4
 
-* A lot of fixes, see CHANGELOG.md (Matjaž Potočnik) 
+* A lot of fixes, see CHANGELOG.md (Matjaž Potočnik)
 
 3.2.3
 
@@ -76,7 +88,7 @@
 
 3.1.5
 
-* Bugfix: Links to images, which are embedded in CSS, are broken if the DOCUMENT_ROOT is not equal to ProcessWire root. 
+* Bugfix: Links to images, which are embedded in CSS, are broken if the DOCUMENT\_ROOT is not equal to ProcessWire root.
 
 3.1.4
 
@@ -87,16 +99,18 @@
 3.1.3
 
 * New LESS version: Update parser to version 1.7.1
+
   * improved parser exceptions with invalid less
   * prevent fround() from changing integer into double
-  * prevent fatal error with preg_match()
+  * prevent fatal error with preg\_match()
   * fix undefined variable
 * New CSSMin version: Update script to version 1.1.2
+
   * Some improvements
   * Bugfix: Broken rule for Firefox 27.0.1 (Animation second "s" lost)
 * Push to stable
 
-3.1.2 
+3.1.2
 
 * New feature: Enable or disable directory traversal filter in the backend ([#12](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/12))
 * New LESS version: Update parser to Version 1.7
@@ -110,14 +124,14 @@
 
 * BugFix ([#11](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/11)): Wrong class order in Less.php parser (Thanks to Ryan Pierce)
 
-3.0.0 
+3.0.0
 
 * AIOM+ tested with ProcessWire 2.4
 * Module now multilingual
 * New feature: LESS support (direct parsing and minimization server-side on the fly)
 * Update readme / documentation
 
-2.2.2 
+2.2.2
 
 * BugFix ([#8](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/8)): Many errors if debug mode is activated (Thanks to JoZ3)
 * Better error handling
@@ -129,7 +143,7 @@
 
 2.2.0
 
-* New feature: File is not minimized when ".min" or "-min" is at the end of the filename. For example ~~~file-1.min.js~~~.
+* New feature: File is not minimized when ".min" or "-min" is at the end of the filename. For example \~\~\~file-1.min.js\~\~\~.
 * Update CSSMin library to Version 1.1 (inspired by Yahoo! YUI compressor)
 * Update JSMin library to Version 2.7.1 (Security fix, recommended update)
 * Performance improvements on first minification
@@ -155,11 +169,11 @@
 * Performance tips in the backend
 * .htaccess instructions for domain sharding in the backend
 
-1.1.1  
+1.1.1
 
 * CSS filter update
 
-1.1.0  
+1.1.0
 
 * BugFix ([#1](https://github.com/conclurer/ProcessWire-AIOM-All-In-One-Minify/issues/1)): Error: Exception: RecursiveDirectoryIterator ... Permission denied (Thanks to JoZ3 and Ryan)
 * New Short-Syntax AIOM::CSS(); and AIOM::JS();
@@ -168,7 +182,8 @@
 * New option: enable/disable development mode (combine but no minimizing)
 * Some optimizations
 
-1.0.0  
+1.0.0
+
 * Initial release
 
 This forked version includes these fixes:
@@ -207,4 +222,5 @@ https://gist.github.com/recca0120/5930842de4e0a43a48b8bf027ab058f9
 
 https://github.com/gr4y/ProcessWire-AIOM-All-In-One-Minify/commit/e4fc75f2b9e92dc8ab09573c985f3f900b71cb43
 
-https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8&tab=comments#comment-155120
+https://processwire.com/talk/topic/5630-module-aiom-all-in-one-minify-for-css-less-js-and-html/?page=8\&tab=comments#comment-155120
+
