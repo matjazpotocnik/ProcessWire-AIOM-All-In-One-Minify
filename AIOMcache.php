@@ -44,7 +44,7 @@ class AIOMcache
         if (
             isset($_COOKIE['wire_challenge']) || isset($_COOKIE['wires_challenge']) ||
             (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') ||
-            (isset($_SERVER['QUERY_STRING']) && (strpos($query_string, '&') !== false || strpos($query_string, 'it=processwire') !==false)) ||
+            (isset($_SERVER['QUERY_STRING']) && (strpos($query_string, '&') !== false || strpos($query_string, 'it=processwire') !== false)) ||
                 !is_file(self::$aiomCachePath . 'aiom.enabled')
         ) {
                 //self::log('cache INFO: condition not met ' . $_SERVER['QUERY_STRING']);
@@ -79,9 +79,9 @@ class AIOMcache
 
         /** @var list<mixed> $aiomCacheFileArr */
         $pageCacheFile = self::toString($aiomCacheFileArr[0]);       //eg. /site/assets/cache/Page/1/page2_1234.cache
-        $pageCacheTime = $aiomCacheFileArr[1];       //eg. 3600 - not used
+        //$pageCacheTime = $aiomCacheFileArr[1];       //eg. 3600 - not used
         $pageCacheExpireTime = $aiomCacheFileArr[2]; //eg. 1583141543
-        $pageCacheExpireDate = $aiomCacheFileArr[3]; //eg. 2020-02-20 21:57:03 - not used
+        //$pageCacheExpireDate = $aiomCacheFileArr[3]; //eg. 2020-02-20 21:57:03 - not used
         //$tplFiles = count($aiomCacheFileArr) > 4 ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
         $tplFiles = isset($aiomCacheFileArr[4]) && is_array($aiomCacheFileArr[4]) ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
 
@@ -98,10 +98,10 @@ class AIOMcache
         $pageCacheExpireFilemtime = @filemtime($pageCacheFile);
         foreach ($tplFiles as $tplFile) {
             $tplFile = self::toString($tplFile);
-            //self::log("cache INFO: checking $tplFile, " . date("Y-m-d H:i:s", @filemtime($tplFile)));
+            //self::log(sprintf('cache INFO: checking %s, %s', $tplFile, date('Y-m-d H:i:s', @filemtime($tplFile))));
             if (is_file($tplFile) && filemtime($tplFile) > $pageCacheExpireFilemtime) {
                 //template file is newer than cachefile, invalidate (remove) cache files for the page
-                //self::log("cache INFO: $tplFile is newer than $pageCacheFile");
+                //self::log(sprintf('cache INFO: %s is newer than %s', $tplFile, $pageCacheFile));
                 self::removeCacheFile($aiomCacheFile);
                 return false;
             }
@@ -112,7 +112,7 @@ class AIOMcache
 
         if ($out === false) {
             //some error occured or page cache file is empty
-            self::log("cache ERROR: /$it $pageCacheFile empty or nonexistent");
+            self::log(sprintf('cache ERROR: /%s %s empty or nonexistent', $it, $pageCacheFile));
             self::removeCacheFile($aiomCacheFile);
             return false;
         }
@@ -120,7 +120,7 @@ class AIOMcache
         //we have a content, serve it
         $len = @mb_strlen($out, 'UTF-8');
         self::rewrite($out);
-        //self::log("cache HIT: /$it serving $pageCacheFile ($len bytes)");
+        //self::log(sprintf('cache HIT: /%s serving %s (%d bytes)', $it, $pageCacheFile, $len));
 
         header('X-AIOM-Cache: HIT');
         /*
@@ -195,7 +195,7 @@ class AIOMcache
 
             // check if line also indicates a previous quantity that we should add to our quantity
             if (strpos($chunkLine, ' ^+') !== false) {
-                list($chunkLine, $n) = explode(' ^+', $chunkLine, 2);
+                [$chunkLine, $n] = explode(' ^+', $chunkLine, 2);
                 if (ctype_digit($n)) $x += (int) $n;
             }
 
@@ -209,10 +209,10 @@ class AIOMcache
             $qty += $x;
         }
 
-        if ($qty) {
+        if ($qty !== 0) {
             // append quantity to line, i.e. “^+2” indicating 2 more indentical lines were above
             $chunk = implode("\n", array_values($chunkLines));
-            $line .= " ^+$qty";
+            $line .= ' ^+' . $qty;
         }
     }
 
@@ -269,8 +269,10 @@ class AIOMcache
         for ($tries = 0; $tries <= $maxTries; $tries++) {
             $fp = fopen($logFile, $mode);
             if ($fp) break;
+
             // if unable to open for reading/writing, see if we can open for append instead
             if ($mode === 'r+' && $tries > ($maxTries / 2)) $mode = 'a';
+
             usleep($maxTriesDelay);
         }
 
@@ -281,6 +283,7 @@ class AIOMcache
         for ($tries = 0; $tries <= $maxTries; $tries++) {
             $hasLock = flock($fp, LOCK_EX);
             if ($hasLock) break;
+
             usleep($maxTriesDelay);
         }
 
@@ -306,7 +309,6 @@ class AIOMcache
                 self::removeLineFromChunk($line, $chunk, $chunkSize);
                 fseek($fp, 0, SEEK_END);
                 $oldLength = ftell($fp);
-                $newLength = $chunkLength > $oldLength ? $oldLength - $chunkLength : 0;
                 $newLength = max(0, $oldLength - $chunkLength);
                 ftruncate($fp, $newLength);
                 fseek($fp, 0, SEEK_END);
@@ -317,7 +319,7 @@ class AIOMcache
         }
 
         // add the log line
-        $result = fwrite($fp, "$ts$line\n");
+        $result = fwrite($fp, $ts . $line . PHP_EOL);
 
         // release the lock and close the file
         flock($fp, LOCK_UN);
@@ -355,6 +357,7 @@ class AIOMcache
             } else {
                 $html .= $c;
             }
+
             $changed = true;
         }
 
@@ -368,7 +371,8 @@ class AIOMcache
             }
             $changed = true;
         }
-        //self::log("cache INFO: html taged as cache=$changed");
+
+        //self::log(sprintf('cache INFO: html taged as cache=%s', $changed));
         return $changed;
     }
 
@@ -399,9 +403,9 @@ class AIOMcache
     {
         $ret = @unlink($file);
         if ($ret) {
-            //self::log("cache INFO: cache file expired, $file deleted");
+            //self::log(sprintf('cache INFO: cache file expired, %s deleted', $file));
         } else {
-            self::log("cache ERROR: cache file expired, $file delete failed");
+            self::log(sprintf('cache ERROR: cache file expired, %s delete failed', $file));
         }
 
         if (!$delFolder) return;
@@ -421,9 +425,9 @@ class AIOMcache
                 //directory is empty
                 $ret = @rmdir($dir);
                 if ($ret) {
-                    //self::log("cache MISS: cache file expired, $dir deleted");
+                    //self::log(sprintf('cache MISS: cache file expired, %s deleted', $dir));
                 } else {
-                    self::log("cache ERROR: cache file expired, $dir delete failed");
+                    self::log(sprintf('cache ERROR: cache file expired, %s delete failed', $dir));
                 }
             }
         }
