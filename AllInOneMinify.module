@@ -686,9 +686,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		if ($input->get('cache') === 'clear' && $template->name === 'admin') self::clearAssetsCacheFromBackend();
 		if ($input->get('pagecache') === 'clear' && $template->name === 'admin') self::clearAiomCacheFromBackend();
 
-		//js needed only if using WireTabs with custom wiretabid
-		//$config->scripts->add($config->urls->siteModules . self::MODULENAME . '/' . self::MODULENAME . '.js');//?v=' . time());
-		$config->styles->add($config->urls->siteModules . self::MODULENAME . '/' . self::MODULENAME . '.css');//?v=' . time());
+		if ($input->get('name') === $this->className()) {
+			//js needed only if using WireTabs with custom wiretabid
+			//$config->scripts->add($config->urls->siteModules . self::MODULENAME . '/' . self::MODULENAME . '.js');//?v=' . time());
+			$config->styles->add($config->urls->siteModules . self::MODULENAME . '/' . self::MODULENAME . '.css');//?v=' . time());
+		}
 
 		// Check if template files are newer than cache file
 		if ($template->name !== 'admin' && $template->cache_time > 0 && self::$configData['template_files'] !== '') {

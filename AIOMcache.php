@@ -38,7 +38,7 @@ class AIOMcache
         self::$aiomCachePath = self::$rootPath . '/site/assets/cache/aiom/';
         self::$logFile = self::$rootPath . '/site/assets/logs/aiom.txt';
 
-        $query_string = self::toString($_SERVER['QUERY_STRING']);
+        $query_string = self::toString($_SERVER['QUERY_STRING'] ?? '');
 
         //return if not a guest or is POST request or GET request has '&' or 'processwire' or caching not enabled
         if (
@@ -51,7 +51,7 @@ class AIOMcache
                 return false;
         }
 
-        $it = self::toString($_GET['it']);
+        $it = self::toString($_GET['it'] ?? '');
         //$it = $_GET['it'] ?? '';
         $it = trim($it, '/') . '/';
         if ($it === '/') $it = '';
