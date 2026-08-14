@@ -1,5 +1,22 @@
 ## Changelog
 
+### 4.1.1
+* **Security:** Hardened the page cache against path-traversal attempts and improved automatic detection of the site root.
+* **Security:** Assets referenced from the templates folder are now kept inside that folder, blocking attempts to read files outside of it (unless the "directory traversal" option is enabled).
+* **Fix:** HTML minify no longer strips the whitespace between adjacent inline elements, so rendered text like "Note: click here" and "Hello World" keeps its separating space (previously collapsed to "Note:click here" / "HelloWorld").
+* **Fix:** HTML minify now shields inline `<style>` blocks and restores them verbatim, so CSS embedded in HTML is no longer mangled by whitespace normalization.
+* **Fix:** HTML minify replaced the blanket line-break removal (which could join words across lines) with a single rule that collapses whitespace runs to a single space.
+* **Fix:** CSS minify shields comments and quoted strings in one pass, so quotes inside comments and comment-like text inside strings are no longer treated as CSS syntax.
+* **Fix:** CSS minify preserves whitespace before a colon, so descendant selectors like `a :hover` are no longer collapsed into the semantically different pseudo-class `a:hover`.
+* **Fix:** A broken or unreadable CSS/JS file is now skipped instead of breaking the whole bundle.
+* **Fix:** If all assets end up unreadable, no empty cache file is written, so the page can retry on the next request.
+* **Fix:** Cache writes that fail are now detected and logged instead of leaving a broken cache entry.
+* **Improvement:** HTML minify protects the content of `<script>`, `<style>`, `<textarea>`, `<pre>` and `<code>` elements plus framework markers (Vue, Alpine, Svelte, Knockout, etc.) from minification.
+* **Improvement:** CSS minify strips ordinary comments while keeping important comments (`/*! ... */`).
+* **Improvement:** More robust asset path handling — Windows absolute paths, web-root-relative and template-relative paths resolve correctly, cache-busting parameters are stripped, and paths are normalized for consistent cache filenames.
+* **Improvement:** In normal mode, remote/CDN availability checks are skipped while the current generated bundle remains cached.
+* **Upgrade note:** Clear the AIOM+ asset cache after upgrading. Normalized asset paths may produce new cache filenames; previously generated files otherwise remain until their normal expiration.
+
 ### 4.1.0
 * **Refactor:** Switched from Lars Moelleken's voku HTML parser to internal script/style manipulation.
 * **Update:** Switched from Douglas Crockford's JSmin to Robert Hafner's JShrink.

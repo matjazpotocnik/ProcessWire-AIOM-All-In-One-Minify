@@ -81,15 +81,15 @@ options. index.php file rarely changes during ProcessWire upgrade, so it's not a
 big deal. Edit `/index.php` located on your webroot folder with a text editor and
 add this line **before** any ProcessWire statements:
 
-~~~html
-@include('site/modules/AllInOneMinify/AIOMcache.php')
+~~~php
+@include_once 'site/modules/AllInOneMinify/AIOMcache.php';
 ~~~
 
 As an alternative, if you don't want or can't change index.php, the next option is to edit 
 `/site/config.php` and add this at the end of the config:
 
-~~~html
-@include($config->paths->siteModules . 'AllInOneMinify/AIOMcache.php');
+~~~php
+@include_once $config->paths->siteModules . 'AllInOneMinify/AIOMcache.php';
 ~~~
 
 This option is not as fast as inclusion in index.php since ProcessWire is already halfway done booting,
@@ -114,8 +114,10 @@ enable AIOM+ caching.
 
 **NOTE:** AIOM+ template caching works only for guest users (even if you setup template caching for guests
 and logged-in users), that is, it won't fire up if _wire_challenge_ or _wires_challenge_ cookie is present in
-the page request. It also won't work for POST requests or GET requests with parameters. When a page is served 
-from the AIOM+ cache `data-cache='AIOM'` will be added to the `<body>` or `<html>` tag. 
+the page request. Those cookies are set on login and persist for up to 30 days: an explicit logout removes them,
+but a session that simply times out leaves the cookie behind, so such visitors are still excluded from the AIOM+
+cache until it expires. It also won't work for POST requests or GET requests with parameters. When a page is
+served from the AIOM+ cache `data-cache='AIOM'` will be added to the `<body>` or `<html>` tag. 
 
 <a name='minification'></a>
 ## Minification ##

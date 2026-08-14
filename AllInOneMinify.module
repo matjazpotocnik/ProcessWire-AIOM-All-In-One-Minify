@@ -53,22 +53,21 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	public const MIN_CACHE_LIFETIME = 60; // in seconds, 1 minute
 	public const MAX_CACHE_LIFETIME = 31536000; // in seconds, 1 year
 	public const DEFAULT_CACHE_LIFETIME = 2419200; // in seconds, 28 days
-	public const DEBUG = true; // for internal debugging
+	public const DEBUG = false; // for internal debugging
 	public const MODULENAME = 'AllInOneMinify'; // to save some calls
 
 	/**
 	 * Module info
 	 *
 	 * @return array<string,mixed>
-	 *
 	 */
 	public static function getModuleInfo() {
 
 		return [
-			'title' => __('AIOM+ (All In One Minify) for CSS, LESS, JS and HTML'),
-			'version' => '4.1.0',
+			'title' => __('AIOM+ Asset Minifier & Page Cacher'),
+			'version' => '4.1.1',
 			'author' => 'David Karich & Conclurer GbR, matjazpotocnik, kixe, Philzen, TomS, gingebaker, janKir, gr4y and others',
-			'summary' => __('AIOM+ (All In One Minify) boosts website performance by parsing, minifying, and combining CSS, LESS, and JS into single, optimized files. By reducing server requests and shrinking file sizes, AIOM+ cuts loading times and bandwidth usage. It also offers HTML minification and enhanced template caching to significantly accelerate your site.'),
+			'summary' => __('Automatically parses, minifies, and combines CSS, LESS, and JS files. Minifies HTML output on the fly. Enhances template caching to speed up the site.'),
 			'href' => 'https://github.com/matjazpotocnik/ProcessWire-AIOM-All-In-One-Minify',
 			'singular' => true,
 			'autoload' => true,
@@ -155,12 +154,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return void
 	 */
 	public function init() {
-  	if (!class_exists('AIOM', false) && class_exists('ProcessWire\\AIOM', false)) {
-    	class_alias('ProcessWire\\AIOM', 'AIOM');
-  	}
-  	if (!class_exists('AllInOneMinify', false) && class_exists('ProcessWire\\AllInOneMinify', false)) {
-    	class_alias('ProcessWire\\AllInOneMinify', 'AllInOneMinify');
-  	}
+		if (!class_exists('AIOM', false) && class_exists('ProcessWire\\AIOM', false)) {
+			class_alias('ProcessWire\\AIOM', 'AIOM');
+		}
+		if (!class_exists('AllInOneMinify', false) && class_exists('ProcessWire\\AllInOneMinify', false)) {
+			class_alias('ProcessWire\\AllInOneMinify', 'AllInOneMinify');
+		}
 	}
 
 	/**
@@ -179,8 +178,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			//$fieldset = wire()->modules->get('InputfieldWrapper');
 			//$fieldset = new InputfieldWrapper();
 			//https://processwire.com/talk/topic/24934-using-tabs-wiretabs-in-a-module-config/?tab=comments#comment-216968
-			$fieldset = wire(new InputfieldWrapper());
 			/** @var InputfieldWrapper $fieldset */
+			$fieldset = wire(new InputfieldWrapper());
 			$fieldset->attr('title', $label);
 			$fieldset->attr('class', 'WireTab');
 		} else {
@@ -405,7 +404,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 			$table->row([
 				//[$templateNameLabel => '../../setup/templates/edit?id=' . $template->id . '#tab_cache'], //not working due to a bug
-				"<a href='../../setup/template/edit?id=" . $template->id . "#tab_cache'>" . $templateNameLabel . "</a>",
+				"<a href='" . $config->urls->admin . "setup/template/edit?id=" . $template->id . "#tab_cache'>" . $templateNameLabel . "</a>",
 				$templates->getNumPages($template),
 				$cacheTimeLabel,
 				$clearBehaviorLabel,
@@ -424,7 +423,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			$field->value = $table->render();
 			$field->description = __('This is a list of templates with enabled caching. Click on the template name to change the cache settings.');
 		}
-		$field->notes = __('Set the caching options for other templates in [Templates Setup](../../setup/template/).');
+		$field->notes = __('Set the caching options for other templates in [Templates Setup](' . $config->urls->admin . 'setup/template/).');
 		$fieldset->add($field);
 
 		$wrapper->add($fieldset);
@@ -683,8 +682,10 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		/** @var Template $template */
 		$template = $page->template;
 
-		if ($input->get('cache') === 'clear' && $template->name === 'admin') self::clearAssetsCacheFromBackend();
-		if ($input->get('pagecache') === 'clear' && $template->name === 'admin') self::clearAiomCacheFromBackend();
+		if ($template->name === 'admin') {
+			if ($input->get('cache') === 'clear') self::clearAssetsCacheFromBackend();
+			if ($input->get('pagecache') === 'clear') self::clearAiomCacheFromBackend();
+		}
 
 		if ($input->get('name') === $this->className()) {
 			//js needed only if using WireTabs with custom wiretabid
@@ -733,7 +734,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 *
 	 * @param string|array<int,string>|FilenameArray $javascripts
 	 *     A JavaScript file path or array of file paths relative to the templates
-	 *     directory.
+	 *     directory. Paths and remote URLs must be trusted application input;
+	 *     never pass request-controlled values.
 	 * @return string
 	 *     Public URL to the combined and minified JavaScript file eg.
 	 *     `/site/assets/aiom/js_1f259989ada30d54ea095abce48b228c.js`
@@ -761,11 +763,26 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		}
 
 		$javascripts = (array) $javascripts;
-		$javascripts = self::fileArray($javascripts, '.js');
-		$cacheFile   = self::getCacheName($javascripts, (string) self::$configData['javascript_prefix'], '.js');
-		$cachePath   = self::$assetsCacheDir . $cacheFile;
 		$isDev       = (bool) self::$configData['development_mode'] == 1;
-		//bd($javascripts, "JS() javascripts array");
+
+		if ($isDev) {
+			$fileList = self::fileArray($javascripts, '.js');
+			$cacheFile = self::getCacheName($fileList, (string) self::$configData['javascript_prefix'], '.js');
+			$cachePath = self::$assetsCacheDir . $cacheFile;
+		} else {
+			// Derive the current-bucket cache name without checking remote availability.
+			$fileList = self::fileArray($javascripts, '.js', false);
+			$cacheFile = self::getCacheName($fileList, (string) self::$configData['javascript_prefix'], '.js');
+			$cachePath = self::$assetsCacheDir . $cacheFile;
+
+			if (!file_exists($cachePath)) {
+				// Rebuild the complete list because unavailable remotes change the cache name.
+				$fileList = self::fileArray($javascripts, '.js');
+				$cacheFile = self::getCacheName($fileList, (string) self::$configData['javascript_prefix'], '.js');
+				$cachePath = self::$assetsCacheDir . $cacheFile;
+			}
+		}
+		//bd($fileList, "JS() javascripts array");
 
 		// Check if there is already a combined and cached file. If not, generate a new minified cache file.
 		if (!file_exists($cachePath) || $isDev) {
@@ -775,11 +792,14 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			self::clearPagesCache();
 
 			$js = '';
-			foreach ($javascripts as $javascript) {
+			foreach ($fileList as $javascript) {
 				//bd($javascript, "JS() processing javascript");
 				$jsFileName = $javascript['absolute_path'];
-				$content = file_get_contents($jsFileName);
-				if ($content === false) continue;
+				$content = @file_get_contents($jsFileName);
+				if ($content === false) {
+					self::log("ERROR: unable to read $jsFileName");
+					continue;
+				}
 
 				if (!$isDev && !self::isMinified($jsFileName)) {
 					$content = self::minifyJS($content);
@@ -789,6 +809,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			}
 
 			$js = rtrim($js, PHP_EOL);
+
+			if ($js === '') {
+				self::log("ERROR: no readable javascript files, skipping cache write for $cachePath");
+				return '';
+			}
 
 			self::writeCacheFile($cachePath, $js);
 		}
@@ -811,7 +836,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @param string|array<int,string>|FilenameArray $stylesheets
 	 *     A stylesheet path (e.g. `"css/main.css"`) or a list of stylesheet
 	 *     paths relative to the template directory. A ProcessWire `FilenameArray`
-	 *     (such as `$config->styles`) is also supported.
+	 *     (such as `$config->styles`) is also supported. Paths and remote URLs
+	 *     must be trusted application input; never pass request-controlled values.
 	 * @param array<string,string>|null $lessVars
 	 *     Optional LESS variables to inject when compiling `.less` files.
 	 *     Example: `['colorPrimary' => '#f00']`
@@ -843,12 +869,27 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		}
 
 		$stylesheets = (array) $stylesheets;
-		$stylesheets = self::fileArray($stylesheets, ['.css', '.less']);
-		$cacheFile   = self::getCacheName($stylesheets, (string) self::$configData['stylesheet_prefix'], '.css');
-		$cachePath   = self::$assetsCacheDir . $cacheFile;
 		$isDev       = (bool) self::$configData['development_mode'] == 1;
 		$config      = wire()->config;
-		//bd($stylesheets, "CSS() stylesheets array");
+
+		if ($isDev) {
+			$fileList = self::fileArray($stylesheets, ['.css', '.less']);
+			$cacheFile = self::getCacheName($fileList, (string) self::$configData['stylesheet_prefix'], '.css');
+			$cachePath = self::$assetsCacheDir . $cacheFile;
+		} else {
+			// Derive the current-bucket cache name without checking remote availability.
+			$fileList = self::fileArray($stylesheets, ['.css', '.less'], false);
+			$cacheFile = self::getCacheName($fileList, (string) self::$configData['stylesheet_prefix'], '.css');
+			$cachePath = self::$assetsCacheDir . $cacheFile;
+
+			if (!file_exists($cachePath)) {
+				// Rebuild the complete list because unavailable remotes change the cache name.
+				$fileList = self::fileArray($stylesheets, ['.css', '.less']);
+				$cacheFile = self::getCacheName($fileList, (string) self::$configData['stylesheet_prefix'], '.css');
+				$cachePath = self::$assetsCacheDir . $cacheFile;
+			}
+		}
+		//bd($fileList, "CSS() stylesheets array");
 
 		// Check if there is already a combined and cached file. If not, generate a new minified cache file.
 		if (!file_exists($cachePath) || $isDev) {
@@ -867,11 +908,14 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 			// Processes each stylesheet by loading its content, compiling LESS if needed, rewriting URLs,
 			// optionally minifying it, and appending the result to the combined CSS output.
-			foreach ($stylesheets as $stylesheet) {
+			foreach ($fileList as $stylesheet) {
 				//bd($stylesheet, "CSS() processing stylesheet");
 				$cssFileName = $stylesheet['absolute_path'];
-				$content = file_get_contents($cssFileName);
-				if ($content === false) continue;
+				$content = @file_get_contents($cssFileName);
+				if ($content === false) {
+					self::log("ERROR: unable to read $cssFileName");
+					continue;
+				}
 
 				// If LESS file then run LESS parser.
 				if ($stylesheet['file_extension'] === 'less') {
@@ -891,18 +935,21 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 					}
 				}
 
-				// Minify generated css, URL rewrite is needed independently of whether minification is needed
-				if (!$isDev) {
-					$content = \Minify_CSS_UriRewriter::rewrite($content, dirname($cssFileName), $isVirtualHost ? $config->paths->root : null);
-					if (!self::isMinified($cssFileName)) {
-						$content = self::minifyCSS($content);
-					}
+				// URL rewriting is needed whether or not CSS minification is enabled.
+				$content = \Minify_CSS_UriRewriter::rewrite($content, dirname($cssFileName), $isVirtualHost ? $config->paths->root : null);
+				if (!$isDev && !self::isMinified($cssFileName)) {
+					$content = self::minifyCSS($content);
 				}
 
 				$css .= $content . PHP_EOL;
 			}
 
 			$css = rtrim($css, PHP_EOL);
+
+			if ($css === '') {
+				self::log("ERROR: no readable stylesheet files, skipping cache write for $cachePath");
+				return '';
+			}
 
 			self::writeCacheFile($cachePath, $css);
 		}
@@ -1120,7 +1167,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string Unique cache-file name, including prefix and extension, with an optional "_dev" suffix.
 	 */
 	private static function getCacheName($files, $prefix = 'css_', $ext = '.css') {
-		$hash = md5(print_r($files, true));
+		$hash = md5(print_r($files, true)); //NOSONAR
 		return (self::$configData['development_mode'] != 1) ? $prefix . $hash . $ext : $prefix . $hash . '_dev' . $ext;
 	}
 
@@ -1132,13 +1179,16 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 *     files?: string|array<int, string>
 	 * }> $asset_files List of asset file paths or conditional-loading rules
 	 * @param string|array<int,string> $extension Allowed file extension(s)
+	 * @param bool $checkRemote Whether to check remote asset availability. False is
+	 *     used only for an optimistic cache lookup; its result must not be read
+	 *     without a subsequent checked pass on cache miss.
 	 * @return array<int, array{
 	 *     absolute_path: string,
 	 *     last_modified: int,
 	 *     file_extension: string
 	 * }>
 	 */
-	private static function fileArray($asset_files, $extension = '.css') {
+	private static function fileArray($asset_files, $extension = '.css', bool $checkRemote = true) {
 		/* $asset_files =
 		 *   - ['css/normal.css'],
 		 *   - ['css1.css', 'css2.css'],
@@ -1158,12 +1208,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 				if (in_array($current_page_id, $conditional_pages, true)) {
 					$files = is_array($asset_file['files']) ? $asset_file['files'] : [$asset_file['files']];
 					foreach ($files as $file) {
-						$assetFiles[] = self::getFileInfoArray($file, $extension);
+						$assetFiles[] = self::getFileInfoArray($file, $extension, $checkRemote);
 					}
 				}
 			// No condition, always load
 			} elseif (is_string($asset_file)) {
-				$assetFiles[] = self::getFileInfoArray($asset_file, $extension);
+				$assetFiles[] = self::getFileInfoArray($asset_file, $extension, $checkRemote);
 			}
 
 		}
@@ -1179,13 +1229,16 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 *
 	 * @param string $file path (or URL) to the asset file.
 	 * @param array<int,string> $extension Allowed file extensions.
+	 * @param bool $checkRemote Whether to check remote asset availability. False
+	 *     returns metadata only for the internal optimistic cache lookup; callers
+	 *     must not perform I/O with that result without a checked pass.
 	 * @return array{
 	 *     absolute_path: string,
 	 *     last_modified: int,
 	 *     file_extension: string
 	 * }|null
 	 */
-	private static function getFileInfoArray($file, $extension) {
+	private static function getFileInfoArray($file, $extension, bool $checkRemote = true) {
 
 		$config = wire()->config;
 		$file = trim((string) $file);
@@ -1196,46 +1249,68 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		// remove cache-busting parameters (?v=1.2.3#hash)
 		$file = (string) preg_replace('/[?#].*$/', '', $file);
-		$isRemote = self::isRemote($file);
+		// Extension must match allowed list
+		if (!self::hasNeedle($file, $extension)) {
+			self::log("ERROR: invalid extension for $file");
+			return null;
+		}
 
-		if (strpos($file, '/') === 0 && !$isRemote) {
-			// absolute path, join with doc root
-			$path = rtrim($config->paths->root, '/') . $file;
-		} elseif ($isRemote && self::checkRemoteFileAccess($file)) {
-			// remote file must be treated as existing
-			// use max_cache_lifetime as a placeholder because filemtime() doesn't work with http requests
+		$fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+		// Remote files must return here whether the access check succeeds or fails
+		if (self::isRemote($file)) {
+			if (!preg_match('~^(?:https?:)?//~i', $file)) {
+				self::log("ERROR: unsupported remote URL scheme for $file");
+				return null;
+			}
+
+			$cacheLifetime = (int) self::$configData['max_cache_lifetime'];
+			// Config is sanitized on save; retain a safe fallback for corrupted data.
+			if ($cacheLifetime <= 0) $cacheLifetime = self::DEFAULT_CACHE_LIFETIME;
+			if ($checkRemote && !self::checkRemoteFileAccess($file)) return null;
+			$now = time();
+
 			return [
 				'absolute_path'  => $file,
-				'file_extension' => strtolower(pathinfo($file, PATHINFO_EXTENSION)),
-				'last_modified'  => time() - (int) self::$configData['max_cache_lifetime']
+				'file_extension' => $fileExtension,
+				'last_modified'  => $now - ($now % $cacheLifetime)
 			];
+		}
+
+		// Local files: resolve to absolute path
+		// Absolute and web-root-relative paths trust the caller and are not restricted to the templates directory.
+		if (preg_match('/^[a-z]:[\/\\\\]/i', $file)) {
+			// Windows absolute path
+			$path = $file;
+		} elseif (strpos($file, '/') === 0) {
+			// web-root-relative path, join with document root
+			$path = rtrim($config->paths->root, '/') . $file;
 		} else {
 			// relative path to templates dir
-			$path = (self::$configData['directory_traversal'] != 1)
-							? str_ireplace(['../', './', '%2e%2e%2f', '..%2f'], '', $config->paths->templates . $file)
-							: $config->paths->templates . $file;
+			if (self::$configData['directory_traversal'] != 1) {
+				$templatesPath = (string) realpath($config->paths->templates) . DIRECTORY_SEPARATOR;
+				$resolvedPath = realpath($config->paths->templates . $file);
+				if ($resolvedPath === false || !str_starts_with($resolvedPath, $templatesPath)) {
+					self::log("ERROR: file does not exist or path traversal blocked for $file");
+					return null;
+				}
+				$path = $resolvedPath;
+			} else {
+				$path = $config->paths->templates . $file;
+			}
 		}
 
-		// File must exist locally
-		if (!$isRemote && !file_exists($path)) {
-			self::log("ERROR: $path does not exist");
+		$path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+		$mtime = @filemtime($path);
+		if ($mtime === false) {
+			self::log("ERROR: $path does not exist or is not readable");
 			return null;
 		}
-
-		// Extension must match allowed list
-		if (!self::hasNeedle($path, $extension)) {
-			self::log("ERROR: invalid extension for $path");
-			return null;
-		}
-
-		clearstatcache();
-
-		$mtime = filemtime($path);
 
 		return [
 			'absolute_path'  => $path,
-			'file_extension' => strtolower(pathinfo($path, PATHINFO_EXTENSION)),
-			'last_modified'  => ($mtime !== false ? $mtime : time()),
+			'file_extension' => $fileExtension,
+			'last_modified'  => $mtime,
 		];
 	}
 
@@ -1257,7 +1332,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			return true;
 		}
 
-		self::log("ERROR: Connection to external datasource failed: '$url' (HTTP $status)");
+		if (!$status) {
+			self::log("ERROR: Remote server is unreachable for '$url'");
+			return false;
+		}
+
+		self::log("ERROR: Remote server returned HTTP $status for '$url'");
 		return false;
 	}
 
@@ -1273,8 +1353,13 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$dir = self::$assetsCacheDir;
 		$numberOfFiles = $bytesTotal = 0;
 
-		if (!is_dir($dir)) wireMkdir($dir);
-		$cacheFiles = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
+		if (!is_dir($dir) && !wireMkdir($dir)) {
+			return ['numberOfFiles' => '0', 'bytesTotal' => '0 B'];
+		}
+
+		$cacheFiles = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS)
+		);
 
 		// Number all the data together
 		foreach ($cacheFiles as $cacheFile) {
@@ -1350,7 +1435,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return \Generator<string> Yields absolute file paths
 	 */
 	private static function getDirContents($dir) {
-		$files = array_diff(@scandir($dir), ['.', '..']);
+		$files = @scandir($dir);
+		if ($files === false) return; // directory disappeared or became unreadable
+		$files = array_diff($files, ['.', '..']);
 
 		foreach ($files as $value) {
 			$path = $dir . DIRECTORY_SEPARATOR . $value;
@@ -1452,6 +1539,9 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$tplFiles = [];
 
 		foreach ($tplFilesRaw as $f) {
+			$f = trim($f);
+			if ($f === '') continue;
+
 			if ($f === '{template_files}') {
 				if ($template->filename != '') $tplFiles[] = $template->filename;
 				if ($template->prependFile != '') $tplFiles[] = $template->prependFile;
@@ -1459,13 +1549,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 			} elseif ($f === '{config_template_files}') {
 				if ($config->prependTemplateFile != '') $tplFiles[] = $templatesDir . $config->prependTemplateFile;
 				if ($config->appendTemplateFile != '') $tplFiles[] = $templatesDir . $config->appendTemplateFile;
-			} elseif ($f != '') {
+			} else {
 				$tplFiles[] = $templatesDir . $f;
 			}
 		}
 
-		//remove empty keys
-		return array_filter($tplFiles);
+		return $tplFiles;
 	}
 
 	/**
@@ -1579,17 +1668,20 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Check if an array with given extension matches in a string.
+	 * Check if the file's extension matches one of the allowed extensions.
 	 *
 	 * @param string $haystack Haystack to search
 	 * @param array<int,string|null> $arrayNeedles Array with extension to search
 	 * @return bool
 	 */
 	private static function hasNeedle($haystack, $arrayNeedles) {
+		$extension = strtolower(pathinfo($haystack, PATHINFO_EXTENSION));
+
 		foreach ($arrayNeedles as $needle) {
-			$needle = (string) $needle;
-			if ($needle !== '' && stripos($haystack, $needle) !== false) return true;
+			$needle = strtolower(ltrim((string) $needle, '.'));
+			if ($needle !== '' && $extension === $needle) return true;
 		}
+
 		return false;
 	}
 
@@ -1726,7 +1818,8 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 		return preg_replace_callback($tagPattern, function ($tagMatch) use ($attrName, $methodName, $cdir) {
 			$fullTag = $tagMatch[0];
-			$attrPattern = '/\b' . $attrName . '\s*=\s*(["\']?)(?P<path>[^"\'\s>]+)\1/i';
+			// (?<![\w-]) prevents matching data-href/data-src etc.
+			$attrPattern = '/(?<![\w-])' . $attrName . '\s*=\s*(["\']?)(?P<path>[^"\'\s>]+)\1/i';
 
 			return preg_replace_callback($attrPattern, function ($attrMatch) use ($cdir, $methodName) {
 				$path = $attrMatch['path'];
@@ -1738,6 +1831,10 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 
 				// call JS() or CSS()
 				$newPath = self::{$methodName}($path);
+				// preserve the original attribute if the bundle could not be created
+				if ($newPath === '') {
+					return $attrMatch[0];
+				}
 
 				return str_replace($path, $newPath, $attrMatch[0]);
 			}, $fullTag) ?? $fullTag;
@@ -1747,35 +1844,28 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Minify html and preserve framework markers
 	 *
-	 * @author Gemini, M365Copilot & Github copilot :-)
+	 * @author multiple AI agents
 	 * @param string $html HTML content to process.
 	 * @return string Minified HTML.
 	 */
 	private static function minifyHTML($html) {
-		// protect the content inside <script>, <textarea>, <pre>, <code>
+		// Protect the content inside <script>, <style>, <textarea>, <pre>, <code>
 		// and inside framework markers eg. <!--vue-if-->
 		$patterns = [
-			'<(script|textarea|pre|code)\b[^>]*>.*?<\/\1>',
-			'<!--\s*(?:vue-|alpine-|svelte-|ko\s|__|\b@|#|slot-).*?-->',
+			'<(script|style|textarea|pre|code)\b[^>]*>.*?<\/\1>',
+			'<!--\s*(?:vue-|alpine-|svelte-|ko\s|__|@|#|slot-).*?-->',
 		];
 
 		$shields = [];
 		$htmlProc = self::shield($html, $patterns, $shields);
 
-		//minify the html
+		// Minify the html.
 		$minifyMap = [
-			'/<!--.*?-->/s' => '',    // strip comments
-			'/[ \t]{2,}/'   => ' ',   // Collapse horizontal whitespace
-			'/>\s+</'       => '><',  // Remove whitespace between tags
-			'/^\s+/m'       => '',    // Trim line starts
-			'/\s+$/m'       => '',    // Trim line ends
+			'/<!--.*?-->/s' => '',    // Strip comments
+			'/[ \t]*(?:\r\n?|\n)[ \t\r\n]*|[ \t]{2,}/' => ' ', // Collapse whitespace runs to a single space
 		];
 		$htmlProc = (string) preg_replace(array_keys($minifyMap), array_values($minifyMap), $htmlProc);
 
-		//remove newlines only outside shielded parts
-		$htmlProc = (string) preg_replace("/(\r?\n|\r)/", "", $htmlProc);
-
-		//replace the shields with the actual content
 		return trim(self::unshield($htmlProc, $shields));
 	}
 
@@ -1783,7 +1873,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * Minifies CSS content by removing comments and unnecessary
 	 * whitespace, without affecting data URLs.
 	 *
-	 * @author Gemini, M365Copilot & Github copilot :-)
+	 * @author multiple AI agents
 	 * @param string $css CSS code to minify.
 	 * @return string Minified CSS code.
 	 */
@@ -1791,27 +1881,48 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		//$cssMin = new \tubalmartin\CssMin\Minifier();
 		//$content = $cssMin->run($css);
 
-		// remove comments except /*! ... */
-		$css = (string) preg_replace('~/\*(?!\!)(?:.|\n)*?\*/~', '', $css);
+		// Shield comments and quoted strings in one pass, so quotes inside comments
+		// and comment-like text inside strings are not treated as CSS syntax.
+		$shields = [];
+		$css = self::shield($css, [
+			'\/\*.*?\*\/',
+			'\x22(?:[^\x22\x5c]|\x5c.)*\x22',
+			'\x27(?:[^\x27\x5c]|\x5c.)*\x27',
+		], $shields);
+
+		// Remove ordinary comments before whitespace normalization. Strings and
+		// /*! ... */ comments remain shielded until all minification is complete.
+		$removedComments = [];
+		foreach ($shields as $token => $shield) {
+			if (
+				strncmp($shield, '/*', 2) === 0 &&
+				strncmp($shield, '/*!', 3) !== 0
+			) {
+				$removedComments[$token] = '';
+				unset($shields[$token]);
+			}
+		}
+		$css = strtr($css, $removedComments);
 
 		// normalize & collapse whitespace
 		$css = str_replace(["\r\n", "\r"], "\n", $css);
 		$css = (string) preg_replace('/\s+/', ' ', $css);
 
-		// remove spaces around common delimiters
+		// Remove spaces around common delimiters, except whitespace before ":"
+		// because "a :hover" and "a:hover" are semantically different selectors.
 		$css = (string) preg_replace(
 			[
 				'/\s*{\s*/', '/\s*}\s*/', '/\s*;\s*/',
-				'/\s*:\s*/', '/\s*,\s*/', '/;}/',
+				'/:\s*/', '/\s*,\s*/',
 			], [
-				'{', '}', ';', ':', ',', '}'
+				'{', '}', ';', ':', ','
 			], $css);
 
-		// remove semicolons that are immediately followed by optional whitespace and a
-		// closing brace, preserving semicolons that are part of the CSS structure
+		// Remove semicolons that are immediately followed by optional whitespace and a
+		// closing brace, preserving semicolons that are part of the CSS structure.
 		$css = (string) preg_replace('/;(\s*})/', '$1', $css);
 
-		return trim($css);
+		return trim(self::unshield($css, $shields));
 	}
 
 	/**
@@ -1841,15 +1952,11 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 		$cacheFile = $this->getCacheFile($page);
 		$file = $this->getAiomCacheDir($page) . 'cache.json'; // /site/assets/cache/aiom/one/page10/cache.json
 
-		// convert array to json object and write to cache file
-		$json = json_encode($cacheFile, JSON_FORCE_OBJECT);
+		// convert array to JSON and write to cache file
+		$json = json_encode($cacheFile);
 		//@unlink($file);
-		$result = @file_put_contents($file, $json, LOCK_EX);
-
-		if ($result === false) {
+		if ($json === false || @file_put_contents($file, $json, LOCK_EX) === false) {
 			self::log("ERROR: create file $file failed");
-		} else {
-			//self::log("$file created");
 		}
 	}
 
@@ -1923,13 +2030,12 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * }
 	 */
 	protected function getCacheFile($page) {
+		$template = $page->template();
+		if (!$template) throw new WireException("Page $page->id has no template");
+
 		$cacheFileObj = $this->getCacheFileObject($page);
 		$cacheFileStr = (string) $cacheFileObj;
-		$cacheFileArr = (array) $cacheFileObj;
-		$cacheTime = $cacheFileArr[chr(0).'*'.chr(0).'cacheTimeSeconds']; //protected property
-		//should we get cache time from template?
-		//$cacheTime = (int) $page->template->cache_time;
-		//$cacheTime = (int) $page->template->cacheTime; this is an alias for cache_time
+		$cacheTime = (int) $template->cache_time;
 		$cacheExpireTime = time() + $cacheTime;
 		$cacheExpireDate = date("Y-m-d H:i:s", $cacheExpireTime); //not used
 		$tplFiles = $this->getTemplateFiles($page);
@@ -2041,7 +2147,7 @@ class AllInOneMinify extends WireData implements Module, ConfigurableModule {
 	 * @return string
 	 */
 	private static function wireBytesStr($bytes) {
-		$label  = ['B', 'kB', 'MB', 'GB', 'TB', 'PB']; // 5 = (count($label) - 1
+		$label  = ['B', 'kB', 'MB', 'GB', 'TB', 'PB']; // 5 = count($label) - 1
 		for ($i = 0; $bytes >= 1024 && $i < 5; $i++) $bytes /= 1024;
 
 		return round($bytes) . ' ' . $label[$i];

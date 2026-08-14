@@ -40,26 +40,29 @@ class AIOMcache
 
         $query_string = self::toString($_SERVER['QUERY_STRING'] ?? '');
 
-        //return if not a guest or is POST request or GET request has '&' or 'processwire' or caching not enabled
+        //return if not a guest, request method is not GET, query string is not a simple
+        //cache URL (?it=... with no '&' and no 'it=processwire'), or caching not enabled
         if (
             isset($_COOKIE['wire_challenge']) || isset($_COOKIE['wires_challenge']) ||
-            (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') ||
-            (isset($_SERVER['QUERY_STRING']) && (strpos($query_string, '&') !== false || strpos($query_string, 'it=processwire') !== false)) ||
-                !is_file(self::$aiomCachePath . 'aiom.enabled')
+            ($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' ||
+            ($query_string !== '' &&
+                (strpos($query_string, 'it=') !== 0 || strpos($query_string, '&') !== false || strpos($query_string, 'it=processwire') !== false)
+            ) ||
+            !is_file(self::$aiomCachePath . 'aiom.enabled')
         ) {
-                //self::log('cache INFO: condition not met ' . $_SERVER['QUERY_STRING']);
-                return false;
+            //self::log('cache INFO: condition not met ' . $_SERVER['QUERY_STRING']);
+            return false;
         }
 
         $it = self::toString($_GET['it'] ?? '');
-        //$it = $_GET['it'] ?? '';
-        $it = trim($it, '/') . '/';
-        if ($it === '/') $it = '';
+        if (strpos($it, '..') !== false) return false;
+        $it = trim($it, '/');
+        if ($it !== '') $it .= '/';
 
         $aiomCacheFile = self::$aiomCachePath . $it . 'cache.json';
 
         //some general logging, uncomment only for debugging
-        //self::log("cache INFO: it: $it, queryString: " . $query_string']);
+        //self::log("cache INFO: it: $it, queryString: " . $query_string);
 
         //check if AIOM cache file exist
         //this also serve as a way to "sanitize" $it
@@ -69,9 +72,13 @@ class AIOMcache
         }
 
         //AIOM cache file exists, open it and get "real" Page cache file, cache time and template files
-        $aiomCacheFileContent = (string) file_get_contents($aiomCacheFile);
+        $aiomCacheFileContent = file_get_contents($aiomCacheFile);
+        if ($aiomCacheFileContent === false) {
+            self::log("cache ERROR: unreadable $aiomCacheFile");
+            return false;
+        }
         $aiomCacheFileArr = json_decode($aiomCacheFileContent, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($aiomCacheFileArr) || count($aiomCacheFileArr) < 4) {
+        if (!is_array($aiomCacheFileArr) || !isset($aiomCacheFileArr[0], $aiomCacheFileArr[2])) {
             self::log("cache ERROR: invalid format of $aiomCacheFile");
             self::removeCacheFile($aiomCacheFile);
             return false;
@@ -80,7 +87,7 @@ class AIOMcache
         /** @var list<mixed> $aiomCacheFileArr */
         $pageCacheFile = self::toString($aiomCacheFileArr[0]);       //eg. /site/assets/cache/Page/1/page2_1234.cache
         //$pageCacheTime = $aiomCacheFileArr[1];       //eg. 3600 - not used
-        $pageCacheExpireTime = $aiomCacheFileArr[2]; //eg. 1583141543
+        $pageCacheExpireTime = is_numeric($aiomCacheFileArr[2]) ? (int) $aiomCacheFileArr[2] : 0; //eg. 1583141543
         //$pageCacheExpireDate = $aiomCacheFileArr[3]; //eg. 2020-02-20 21:57:03 - not used
         //$tplFiles = count($aiomCacheFileArr) > 4 ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
         $tplFiles = isset($aiomCacheFileArr[4]) && is_array($aiomCacheFileArr[4]) ? $aiomCacheFileArr[4] : []; //eg. /site/templates/basic-page.php
@@ -88,7 +95,7 @@ class AIOMcache
         //self::log("cache INFO: cacheTime: $pageCacheTime, cacheExpireTime: $pageCacheExpireTime, cacheExpireDate: $pageCacheExpireDate");
 
         //check if page cache file expired
-        if ($pageCacheExpireTime < time()) {
+        if ($pageCacheExpireTime <= time()) {
             //self::log("cache INFO: $pageCacheFile expired");
             self::removeCacheFile($aiomCacheFile);
             return false;
@@ -110,7 +117,7 @@ class AIOMcache
         //now return content from the page cache file
         $out = @file_get_contents($pageCacheFile);
 
-        if ($out === false) {
+        if ($out === false || $out === '') {
             //some error occured or page cache file is empty
             self::log(sprintf('cache ERROR: /%s %s empty or nonexistent', $it, $pageCacheFile));
             self::removeCacheFile($aiomCacheFile);
@@ -118,7 +125,7 @@ class AIOMcache
         }
 
         //we have a content, serve it
-        $len = @mb_strlen($out, 'UTF-8');
+        //$len = @mb_strlen($out, 'UTF-8');
         self::rewrite($out);
         //self::log(sprintf('cache HIT: /%s serving %s (%d bytes)', $it, $pageCacheFile, $len));
 
@@ -142,22 +149,22 @@ class AIOMcache
      */
     private static function getRootPath()
     {
+        // current working directory
         $rootPath = realpath('');
+        if (!$rootPath || !file_exists($rootPath . '/wire/core/ProcessWire.php')) {
+            $rootPath = '';
+        }
 
-        if (empty($rootPath) && !empty($_SERVER['SCRIPT_FILENAME'])) {
-            // first try to determine from the script filename
-            $script_filename = self::toString($_SERVER['SCRIPT_FILENAME']);
-            $parts = explode(DIRECTORY_SEPARATOR, $script_filename);
-            array_pop($parts); // most likely: index.php
-            $rootPath = implode('/', $parts) . '/';
-            if (!file_exists($rootPath . 'wire/core/ProcessWire.php')) $rootPath = '';
+        if (!$rootPath && !empty($_SERVER['SCRIPT_FILENAME'])) {
+            // dirname() correctly handles both Unix and Windows directory separators
+            $rootPath = dirname(self::toString($_SERVER['SCRIPT_FILENAME']));
+            if (!file_exists($rootPath . '/wire/core/ProcessWire.php')) $rootPath = '';
         }
 
         if (!$rootPath) {
-            // if unable to determine from script filename, attempt to determine from current file
-            $parts = explode(DIRECTORY_SEPARATOR, __FILE__);
-            $parts = array_slice($parts, 0, -3); // removes "ProcessWire.php", "core" and "wire"
-            $rootPath = implode('/', $parts);
+            // if unable to determine from script filename, assume the web root is 4 levels up
+            $rootPath = dirname(__FILE__, 4);
+            if (!file_exists($rootPath . '/wire/core/ProcessWire.php')) $rootPath = '';
         }
 
         if (DIRECTORY_SEPARATOR !== '/') {
@@ -178,7 +185,6 @@ class AIOMcache
      * @param int $chunkSize
      * @return void
      * @since 3.0.143
-     *
      */
     private static function removeLineFromChunk(&$line, &$chunk, $chunkSize)
     {
@@ -216,6 +222,32 @@ class AIOMcache
         }
     }
 
+	/**
+	 * Obtain stable lock for this log file pathname
+	 *
+	 * @param int $maxTries
+	 * @param int $maxTriesDelay
+	 * @return resource|false
+	 *
+	 */
+	private static function lockLogFile($maxTries, $maxTriesDelay)
+    {
+		if(!self::$logFile) return false;
+		$lockFile = self::$logFile . '.lock';
+		$isNew = !file_exists($lockFile);
+		$fp = fopen($lockFile, 'c');
+		if(!$fp) return false;
+		for($tries = 0; $tries <= $maxTries; $tries++) {
+			if(flock($fp, LOCK_EX)) {
+				if($isNew) @chmod($lockFile, 0644);
+				return $fp;
+			}
+			usleep($maxTriesDelay);
+		}
+		fclose($fp);
+		return false;
+	}
+
     /**
      * Save the given log entry string
      * Taken from /wire/core/FileLog.php
@@ -249,40 +281,56 @@ class AIOMcache
         if (!$logFile) return false;
 
         $options = array_merge($defaults, $options);
-        //$hash = md5($str);
         $ts = date("Y-m-d H:i:s");
-        //MP $str = $this->cleanStr($str);
         $line = $delimeter . $str; // log entry, excluding timestamp
         $hasLock = false; // becomes true when lock obtained
         $fp = false; // becomes resource when file is open
+        $lockFp = false; // stable lock for log pathname
+        $maxTriesDelay = (int) $options['maxTriesDelay'];
+        $maxTries = (int) $options['maxTries'];
 
         // if we've already logged this during this instance, then don't do it again
         //MP if(!$options['allowDups'] && isset($this->itemsLogged[$hash])) return true;
 
+        $lockFp = self::lockLogFile($maxTries, $maxTriesDelay);
+		if(!$lockFp) {
+			return false;
+		}
+
         // determine write mode
         $mode = file_exists($logFile) ? 'a' : 'w';
-        if ($mode === 'a' && $options['mergeDups']) $mode = 'r+';
+        if ($mode === 'a' && $options['mergeDups']) {
+            $mode = 'r+';
+        }
 
         // open the log file
-        $maxTriesDelay = (int) $options['maxTriesDelay'];
-        $maxTries = (int) $options['maxTries'];
         for ($tries = 0; $tries <= $maxTries; $tries++) {
             $fp = fopen($logFile, $mode);
-            if ($fp) break;
+            if ($fp) {
+                break;
+            }
 
             // if unable to open for reading/writing, see if we can open for append instead
-            if ($mode === 'r+' && $tries > ($maxTries / 2)) $mode = 'a';
+            if ($mode === 'r+' && $tries > ($maxTries / 2)) {
+                $mode = 'a';
+            }
 
             usleep($maxTriesDelay);
         }
 
         // if unable to open, exit now
-        if (!$fp) return false;
+        if (!$fp) {
+            flock($lockFp, LOCK_UN);
+		    fclose($lockFp);
+            return false;
+        }
 
         // obtain a lock
         for ($tries = 0; $tries <= $maxTries; $tries++) {
             $hasLock = flock($fp, LOCK_EX);
-            if ($hasLock) break;
+            if ($hasLock) {
+                break;
+            }
 
             usleep($maxTriesDelay);
         }
@@ -290,6 +338,8 @@ class AIOMcache
         // if unable to obtain a lock, we cannot write to the log
         if (!$hasLock) {
             fclose($fp);
+            flock($lockFp, LOCK_UN);
+		    fclose($lockFp);
             return false;
         }
 
@@ -334,6 +384,9 @@ class AIOMcache
             //$files->chmod($logFile);
         }
 
+        flock($lockFp, LOCK_UN);
+		fclose($lockFp);
+
         return (int) $result > 0;
     }
 
@@ -366,10 +419,11 @@ class AIOMcache
         if (stripos($html, $c) === false) {
             if (stripos($html, '<body>') !== false) {
                 $html = str_ireplace("<body>", "<body $c>", $html);
-            } elseif (stripos($html, '<body ')) {
+                $changed = true;
+            } elseif (stripos($html, '<body ') !== false) {
                 $html = str_ireplace("<body ", "<body $c ", $html);
+                $changed = true;
             }
-            $changed = true;
         }
 
         //self::log(sprintf('cache INFO: html taged as cache=%s', $changed));
@@ -395,42 +449,23 @@ class AIOMcache
      *
      * @author Matjaž Potočnik
      * @param string $file aiom cache file to remove
-     * @param bool $delFolder indicator to remove the parent folder
      * @return void
      *
      */
-    private static function removeCacheFile($file, $delFolder = false)
+    private static function removeCacheFile($file)
     {
         $ret = @unlink($file);
         if ($ret) {
             //self::log(sprintf('cache INFO: cache file expired, %s deleted', $file));
         } else {
-            self::log(sprintf('cache ERROR: cache file expired, %s delete failed', $file));
+            self::log(sprintf('cache ERROR: cache file expired, but %s delete failed', $file));
         }
-
-        if (!$delFolder) return;
 
         //should I delete real cache file too?
-        //@unlink($pageCacheFile);
-
-        //delete the parent folder if empty and different than the root folder
-        //On Windows, when a parent folder is locked in File Explorer,
-        //deleting a folder here/now my cause failure to create a folder
-        //later on in the script execution in the module. The folder
-        //will eventually be created in the subsequent page request.
-        $dir = dirname($file);
-        if ($dir . '/' !== self::$aiomCachePath) {
-            $iterator = new \FilesystemIterator($dir);
-            if (!$iterator->valid()) {
-                //directory is empty
-                $ret = @rmdir($dir);
-                if ($ret) {
-                    //self::log(sprintf('cache MISS: cache file expired, %s deleted', $dir));
-                } else {
-                    self::log(sprintf('cache ERROR: cache file expired, %s delete failed', $dir));
-                }
-            }
-        }
+        //@unlink($pageCacheFile)
+        //No - page cache file is owned by core PageRender and self-invalidates
+        //(expiry + template mtime); AIOM's template_files case is handled by
+        //the module's checkTemplateFiles() hook at render time.;
     }
 }
 
